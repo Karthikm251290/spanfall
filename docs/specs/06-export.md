@@ -42,7 +42,7 @@ tracescope export <trace-id> [--force] [--redact]
 | Filter box | **None.** Not a disabled one — none. |
 | Data source | `InlineDataSource` (spec 04) |
 | Write | **Temp file, then atomic rename.** Never a partial file on disk. |
-| Filename | `{service}-{trace-id-short}-{UTC-timestamp}.html`, lands in the current working directory. Example: `checkout-4bf92f35-20260913T150000Z.html`. Printed to stdout on success (see T13's stream split), so the redirect case (acceptance #6) has something to redirect. |
+| Filename | `{service}-{trace-id-short}-{UTC-timestamp}.html`, lands in the current working directory. Example: `checkout-4bf92f35-20260913T150000Z.html`. Printed to stdout on success (see T13's stream split), so the redirect case (acceptance #6) has something to redirect. **`{service}` comes from `service.name` — a resource attribute the instrumented app sets, i.e. attacker/misconfiguration-controlled data, unlike `{trace-id-short}` which is a hex slice of a fixed-width binary trace ID and cannot contain path separators.** Sanitize `{service}` before it reaches the filesystem: keep only `[a-zA-Z0-9._-]`, replace every other byte (including `/`, `..`, null) with `_`, and cap the sanitized result at 64 bytes. This is a filesystem-safety control, distinct from T11's HTML-escaping of the same string when it is later *displayed* inside the exported page — both are required, neither substitutes for the other. **Multi-service trace:** use the root span's (the span with no parent) `service.name`. |
 
 ### Why the cap exists, and why the filter box does not
 
@@ -219,6 +219,7 @@ Spec-specific additions:
 | 9 | At 375px: no horizontal page scroll, ≥44px targets, span detail as a full-width sheet. |
 | 10 | A file exported from a **dark-mode** machine renders **light** for a recipient whose system is light. |
 | 11 | Disk full mid-write: **no partial file left behind**, OS error shown. |
+| 12 | **(eng review, 2026-09-13)** Trigger eviction of the trace being exported mid-export: the export either completes with the full trace it started reading, or fails with `TraceEvicted` — never a partial/truncated file. This should already hold structurally (spec 01 §4: readers copy out everything they need before releasing the read lock, so an evicting writer blocks until export's copy finishes), but is not yet an asserted test. |
 
 ## Out of scope
 

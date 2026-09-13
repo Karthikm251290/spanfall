@@ -83,7 +83,9 @@ microbenchmark.**
    11k-span trace you believe is 40k.
 2. `performance.now()` instruments **our viewer only.** Incumbent keystroke latency is
    DevTools-measured, 10 runs, median + p90.
-3. **Any *single* incumbent inside the good bands kills the performance headline.** Not an average.
+3. **Any *single* incumbent inside the good bands kills the performance headline.** Not an average —
+   if even one tested incumbent already meets the target latency, performance is not a differentiator
+   for the launch, regardless of how the others measure.
 4. **Report the spread.** Variance above 30% means the harness is not good enough to call a
    threshold decision.
 

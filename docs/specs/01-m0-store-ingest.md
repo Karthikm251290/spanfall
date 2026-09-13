@@ -1,6 +1,8 @@
 # Spec 01 — M0: ingest, store, receiver data
 
-**Tasks:** T4 (dedupe). The rest of this spec has **no task number** — its source is architecture
+**Tasks:** T4 (dedupe) — **blocked pending STOP #4** (dedupe semantics undecided; do not estimate
+this as ready work until it is resolved — see the STOP box under §T4 below). The rest of this spec
+has **no task number** — its source is architecture
 prose in `docs/prd.md` §Architecture (v1), decided 2026-09-13 and stress-tested by an Opus pass, two
 adversarial rounds and an outside-voice pass. It was never re-opened.
 
@@ -88,6 +90,14 @@ wrong choice: `GET /user/8f3a-…`-style names are unbounded by design.
 The cap raising a warning rather than growing is the point: the failure is visible, bounded, and
 reported as data.
 
+**Behavior when the cap is hit (eng review, 2026-09-13):** the interner stops accepting new keys,
+not new spans. A span whose attribute uses a key not already interned when the cap is full **drops
+that one attribute key/value pair** — the span keeps every other attribute and is still accepted.
+Increment a global `attribute_key_cap_hit` counter, surfaced in the Receiver. This follows directly
+from §2's contract ("per-span problems are flags, never errors"): a full interner is a per-attribute
+problem, not a reason to reject the span or the batch. Do not error the whole span; do not invent a
+placeholder key.
+
 ### Parent resolution at insert, with patching
 
 `parent_idx` is resolved to a **local index** at insert time.
@@ -99,9 +109,20 @@ deliberate:
 - "broken parent link" becomes a **free, self-healing computed property** rather than a rejection
 - a span whose parent is never seen **renders as a root, flagged** — never rejected
 
+**Patching triggers invalidation (eng review, 2026-09-13):** a patch-in-place changes the trace's
+topology (a span's child count, its `ORPHAN` flag), so it emits the same `{"type":"changed","seq":N}`
+event on `GET /api/events` as any other store mutation (§6). A client holding a stale child-count for
+a span it already rendered gets the same invalidation signal ingest already produces for new spans —
+no second mechanism.
+
 ### T4 — dedupe on `(trace_id, span_id)`
 
-**Effort:** ~3h human / ~30min CC.
+**Status: BLOCKED, not ready to build.** The effort estimate below assumes the dedupe semantics are
+settled; they are not (STOP #4, immediately below). Do not schedule or start T4 until STOP #4
+resolves — implementing either choice on a guess produces work that has to be redone once the real
+answer lands, since the two choices are observably different, not an internal detail.
+
+**Effort:** ~3h human / ~30min CC (unblocked; add the decision time for STOP #4 on top).
 
 Dedupe at insert, riding the `span_id` probe that parent resolution already performs — so this
 costs no additional hash lookup.
@@ -282,6 +303,26 @@ Not SQL — nobody wants to write `WHERE` clauses per keystroke. **One filter im
 Rust**, serving in-trace filtering now and cross-trace search later. A second implementation in JS
 is rejected by name in `docs/prd.md` "Decided Against", and that rejection is load-bearing for
 spec 06 (no filter box in exports).
+
+**Grammar (eng review, 2026-09-13 — formalized because this parser is reused verbatim for
+cross-trace search later, so ambiguity now is ambiguity twice):**
+
+```
+query      := term (WS term)*        # implicit AND, no OR in v1
+term       := KEY OP VALUE
+KEY        := [a-zA-Z_][a-zA-Z0-9_.]*   # case-sensitive, matched literally against attribute keys
+OP         := "=" | "!=" | ">=" | "<=" | ">" | "<"
+VALUE      := bareword | quoted-string
+quoted-string := '"' (any-char-except-quote | '\"')* '"'   # backslash-quote is the only escape
+```
+
+A bareword `VALUE` (`"cart"`'s alternative — bare terms with no `KEY OP` match against span name
+and attribute values as substring search) is a standalone term with no key/operator, matched as a
+plain substring, per the literal example (`... "cart"`). A malformed term (unknown operator,
+unterminated quote) is **dropped from the query with the rest still applied**, not a whole-query
+error — the same "don't fail the batch for one bad piece" posture as §2's per-span flags. The API
+returns which terms it dropped so the UI can show it, rather than silently filtering on less than
+the user typed.
 
 ---
 

@@ -191,6 +191,26 @@ pin alongside `--max-memory` once M1 (spec 02) measures real bytes/span and key 
 **Priority:** P3
 **Depends on:** M1 measurement (spec 02). Do not guess a number before then.
 
+### Watch item: eviction thrash under sustained overload
+
+**What:** `docs/specs/01-m0-store-ingest.md` §5 evicts the trace with the oldest last-activity. Under
+sustained overload, a just-evicted trace's own late-arriving spans (`RESURRECTED`, normal in OTLP)
+can immediately recreate it, consuming the space eviction just freed — repeat, burning CPU on
+eviction bookkeeping with no usable working set gained.
+
+**Why:** Flagged independently by both the CEO deep review and the Eng review's independent voice
+(`/autoplan`, 2026-09-13) with the same conclusion: not a v1 blocker, since M1's benchmark scenarios
+don't generate this load pattern, and the eviction counters already surfacing in the Receiver make
+it discoverable rather than silent if it happens.
+
+**Context:** A guard (e.g. pause ingest briefly if eviction rate exceeds a threshold) is cheap once
+there's evidence it's needed. Building it now would be speculative — there's no load-generating test
+in M1 that would validate the guard actually helps.
+
+**Effort:** S (if it happens)
+**Priority:** P3
+**Depends on:** Observed eviction-rate problem in real usage. Don't build speculatively.
+
 ## Design (deferred from design review 2026-09-13)
 
 Full findings and the approved directions live in `docs/designs/tracescope-v1.md`, section

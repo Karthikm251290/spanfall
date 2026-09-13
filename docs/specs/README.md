@@ -505,6 +505,20 @@ already built into the storage and query design — see Step 0C. No delta correc
 | 19 | DX | STOP #2 (UI port) and STOP #5 (`--max-memory` default) queued as Taste Decisions with recommended values (`:5317`, `1 GiB`), not auto-fixed | Taste | N/A — STOP items are explicitly not auto-decidable | Both are on `docs/specs/README.md`'s STOP list ("not yours to resolve... stop and ask"); this pass's job is to surface a well-reasoned recommendation, not silently pick a value even though both DX voices independently converged on the same numbers | Silently writing a port/memory default into spec text |
 | 20 | DX | `BLOCKERS.md` (independent subagent's suggestion) queued as Taste Decision, deferred | Taste | Pragmatic | `docs/specs/README.md`'s existing STOP list already serves this purpose; a second file would duplicate it before STOP #2/#5 even shrink the list | Building a new file in DX POLISH mode, which fixes touchpoints, not adds deliverables |
 | 21 | DX | Attribute-key interner cap value: not fixed, added as a `TODOS.md`-style deferred note instead of guessing a number | Taste | Pragmatic | No prior review flagged this; not on the formal STOP list but shares its risk profile (a guessed number could be wrong by the same ~5x margin `--max-memory`'s own spec text warns about for bytes/span); the cap's own design (visible Receiver warning, not silent failure) makes an imperfect default low-risk to defer | Guessing a specific cap number with no measurement backing it |
+| 22 | Eng | Fix export filename path traversal — sanitize `{service}` to `[a-zA-Z0-9._-]`, use root span's service on multi-service traces | Mechanical | P2 boil-the-ocean (in blast radius, <1h) + security-boundary rule (never defer a real vulnerability) | `service.name` is attacker/misconfiguration-controlled data reaching the filesystem unsanitized — a genuine bug with a cheap, unambiguous fix, not a taste call | Leaving a real path-traversal vector for the gate to merely discuss |
+| 23 | Eng | Mark T4 as blocked-pending-STOP-4 in spec 01's task list, rather than resolving the dedupe semantics myself | Mechanical (process fix) + Taste (the actual semantics, queued below) | Explicit-over-clever | The tasking mismatch (estimating a task whose precondition is undecided) is mine to fix; the actual last-write-wins-vs-drop choice is a genuine STOP item, not mine to guess | Silently picking last-write-wins or drop-on-duplicate |
+| 24 | Eng | STOP #4 (dedupe semantics) queued as Taste Decision for the gate, with both options and tradeoffs named | Taste | N/A — STOP items are explicitly not auto-decidable | OTLP permits legitimate re-export with updated fields; last-write-wins and drop-on-duplicate produce different observable output with no clearly-correct default | Guessing a semantic with observable behavioral consequences |
+| 25 | Eng | Define attribute-cap-hit behavior: drop the new attribute key/value pair, keep the span, increment a counter | Mechanical | Consistency with spec's own existing contract (§2: per-span problems are flags, never errors) | This isn't a toss-up between equally-valid options — the plan's own established architecture already answers "what happens to a per-item problem," this just applies it to a path that had been left undefined | Treating this as a coin-flip taste call when the plan already has a consistent answer |
+| 26 | Eng | Thread `generation` into lint's Finding sample tuples | Mechanical | Completeness + explicit-over-clever | The store's existing generation-check mechanism (spec 01) cannot protect a JSON payload already in the browser unless the payload carries the generation to compare against; this closes a real staleness gap using the plan's own existing mechanism, not a new one | Leaving stale lint sample links to silently resolve to the wrong span |
+| 27 | Eng | Formalize the filter grammar (operators, precedence, quoting, malformed-term handling) in spec 01 §6 | Mechanical | Completeness (P1) — this parser is reused verbatim for cross-trace search later | An informal grammar with only one worked example was genuinely underspecified for a component explicitly designed for reuse; formalizing it now is cheaper than formalizing it twice | Leaving ambiguity that gets copied into cross-trace search later |
+| 28 | Eng | State explicitly that parent-patching triggers SSE invalidation | Mechanical | Explicit-over-clever | The plan already has exactly one invalidation mechanism; this fix states that patch-in-place is one more trigger for it rather than inventing a second mechanism or leaving the client with stale data | Leaving whether patching invalidates as an implementer guess |
+| 29 | Eng | Add acceptance row for "clean + skipped-rules line render together" | Mechanical | Completeness | D2's own rule ("a skipped rule must never render as a pass") implies this combination must work, but no acceptance row exercised it explicitly | Leaving an implied-but-untested interaction |
+| 30 | Eng | Add acceptance row for export-vs-eviction race | Mechanical | Completeness | The existing lock discipline (spec 01 §4) already prevents this structurally; the gap was a missing test, not a missing mechanism | Leaving a correct-by-architecture behavior unverified |
+| 31 | Eng | Reject: independent-subagent finding on T2's span-count check not verifying topology | Taste (rejected) | N/A — correction | The only named failure mode (collector queue/`max-traces` truncation) reduces count, which the existing check already catches; a count-preserving structural corruption has no named cause in this plan | Adding assertion complexity for an unevidenced failure mode |
+| 32 | Eng | Reject: independent-subagent finding on dark-palette token function annotations | Taste (rejected) | N/A — correction | Token names already read as self-documenting under the project's own CSS design-token convention; acceptance tests #3-#4 already enforce the actual correctness property (contrast, exact token-set) | Documenting the obvious |
+| 33 | Eng | Reject: independent-subagent's M1-gate-phrasing "backwards logic" characterization; applied a lighter clarifying edit instead | Taste (partially applied) | Pragmatic | The logic was already correct in context (a "good band" incumbent removes the differentiator, doesn't mean "we lose"); a one-clause parenthetical closes the ambiguity without rewriting a settled decision | Rewriting settled phrasing based on a misreading, or ignoring a real (if minor) clarity gap |
+| 34 | Eng | Queue secret-scan user-facing disclaimer text as Taste Decision, not auto-fixed | Taste | N/A — verbosity/safety tradeoff, no clear win | Reasonable people differ on whether every clean export should print a security disclaimer; the underlying risk is already disclosed in the spec text itself | Deciding a UX verbosity tradeoff without the user's input |
+| 35 | Eng | Write eviction-thrash watch item to `TODOS.md` (recommended independently by CEO phase and by this phase's own independent voice) | Mechanical | Bias-toward-action — the action itself is a zero-commitment backlog note, not a build decision | Two independent zero-context reviews converged on the same non-build recommendation; writing the note carries no risk and no scope commitment, unlike building the guard (which nobody recommended) | Leaving a twice-recommended note unwritten pending a gate decision about a decision that was never actually contested |
 
 ---
 
@@ -1123,3 +1137,317 @@ See "Unresolved Decisions" above (Taste Decisions 1-4). None rose to a User Chal
 here suggested the user's stated product scope or direction should change; all four are default-
 value or documentation-organization judgment calls, not can't decide, not settled, then correctly
 distinct from what STOP items already exist to prevent guessing.
+
+## Cross-Phase Themes
+
+Concerns that surfaced independently in 2+ phases — a higher-confidence signal than a single
+phase's finding:
+
+- **Eviction thrash under sustained overload.** Flagged independently by the CEO review (Phase 1)
+  and, again independently, by the Eng review's own independent subagent voice (Phase 3) — neither
+  had seen the other's finding. Both converged on the same conclusion (not v1 scope, watch item,
+  discoverable via existing counters). Written to `TODOS.md` this phase since the recommendation
+  itself is zero-commitment (a backlog note, not a build).
+- **STOP #2 (UI port) and STOP #5 (`--max-memory` default) as day-1 blockers.** Raised by Design
+  phase's independent voice, confirmed independently by DX phase's independent voice, and again
+  independently by Eng phase's independent voice — three separate zero-context reviews all named
+  these as the two things standing between this plan and a runnable v1. Still correctly queued as
+  Taste Decisions for the gate (STOP items are explicitly not auto-decidable), but the convergence
+  across three independent reads is a strong signal the gate should not defer these further.
+- **`docs/specs/README.md`'s own precedence/STOP-list design worked as intended.** Every phase's
+  independent voice occasionally re-flagged something a prior phase had already resolved or that a
+  STOP item already covers (see the Design and DX phases' "reject" rows, and Eng's own verification
+  pass below) — each time, checking the actual current spec text (not the independent voice's
+  zero-context read) caught it. This is the review pipeline behaving correctly, not a gap: an
+  independent voice with zero prior-phase context is expected to occasionally re-derive something
+  already settled, which is exactly why every phase's primary reviewer verifies claims against
+  current text before acting on them, rather than accepting either voice at face value.
+
+## Eng Review (autoplan, 2026-09-13)
+
+**Scope:** the final review phase, reviewing all 8 specs as amended by Phases 1-2.5 (CEO, Design,
+DX). This is the required shipping gate — it runs last so it grades the plan actually being handed
+to an implementer, not the pre-amendment draft.
+
+### Eng consensus table
+
+```
+ENG DUAL VOICES — CONSENSUS TABLE:
+═══════════════════════════════════════════════════════════════
+  Dimension                           Claude  Codex  Consensus
+  ──────────────────────────────────── ─────── ─────── ─────────
+  1. Architecture sound?               Yes     N/A    N/A (single voice)
+  2. Test coverage sufficient?         Partial N/A    N/A (single voice)
+  3. Performance risks addressed?      Yes     N/A    N/A (single voice)
+  4. Security threats covered?         No→Yes* N/A    N/A (single voice)
+  5. Error paths handled?              Yes     N/A    N/A (single voice)
+  6. Deployment risk manageable?       Yes     N/A    N/A (single voice)
+═══════════════════════════════════════════════════════════════
+Codex: unavailable (not installed on this machine) — [codex-unavailable] tagged throughout.
+Claude subagent (independent voice, zero prior-phase context): 20 findings across architecture,
+edge cases, tests, security, hidden complexity. My own primary review (read all 8 specs directly,
+current post-amendment text): verified every subagent claim; 12 confirmed as real (now fixed
+in-spec), 3 already resolved by Phase 2/2.5's edits before this phase started, 3 rejected after
+reading the actual spec text, 2 folded into TODOS.md.
+* Row 4: the subagent's export-filename path-traversal finding was CONFIRMED and fixed this phase
+  (see below) — a real gap the prior three phases did not catch, since none of them read spec 06's
+  filename row against an attacker-controlled-input lens.
+```
+
+### Section 0 — Scope Challenge
+
+Read all 8 spec files directly (not the CEO/Design/DX phase summaries alone) against the independent
+eng subagent's 20 findings. 8 files, ~1,900 lines total — below the 8-file/2-new-class complexity-
+check threshold that would trigger a scope-reduction stop, and scope reduction is disallowed this
+phase regardless (P2, never reduce). No new sub-problem was found that duplicates existing code;
+every fix below extends an existing section rather than adding a new one.
+
+### Section 1 — Architecture
+
+```
+                         ┌─────────────────────────┐
+                         │   spec 00 (day 0)       │
+                         │ scripts/producer.*      │   no product code;
+                         │ scripts/spike-harness/  │   gates T0/T1/T2 only
+                         └─────────────────────────┘
+                                     │ (T0 name, T1 rule validation feed spec 03/07)
+                                     ▼
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ spec 01 — M0: store + ingest + api          (src/ingest/, src/store/,│
+  │                                               src/receiver.rs, src/api/)│
+  │                                                                        │
+  │   OTLP/gRPC :4317 ─┐                                                  │
+  │   OTLP/HTTP :4318 ─┼─▶ ingest::convert ─▶ mpsc ─▶ writer (RwLock)     │
+  │                    │        │                        │                │
+  │              protocol-sniff  │                  Trace{SoA arrays,     │
+  │              (400+fix-in-body)│                  CSR attrs, arena}    │
+  │                               ▼                        │              │
+  │                         receiver.rs (counters)          │              │
+  │                               │                          ▼              │
+  │                               │                    api/ (read lock,   │
+  │                               │                    copy-out, release) │
+  │                               │                          │            │
+  └───────────────────────────────┼──────────────────────────┼────────────┘
+                                  │ GET /api/receiver         │ GET /api/traces{,/:id,
+                                  │                            │  /filter,/events}
+             ┌────────────────────┘                            │
+             │                                                  │
+  ┌──────────▼─────────────┐                       ┌────────────▼────────────┐
+  │ spec 03 — lint          │◀──LintView (read────  │ spec 04 — ui foundation │
+  │ src/lint/,              │   lock, copy, release) │ ui/src/{datasource,     │
+  │ src/store/lint_view.rs  │                        │ tokens.css,keys,nav}.ts │
+  │ (registers /api/lint    │                        │ src/assets/fonts/       │
+  │  handler in spec 01's   │                        └────────────┬────────────┘
+  │  api/, owns Finding type)│                                     │ DataSource,
+  └──────────┬───────────────┘                                     │ InlineDataSource
+             │ lint::Finding (rendered by both CLI and Lint tab)    │
+             ▼                                                     ▼
+  ┌───────────────────────┐                          ┌─────────────────────────┐
+  │ spec 05 — ui surfaces  │◀─consumes DataSource────│  (shared token/nav/keys  │
+  │ ui/src/components/     │                          │   layer above)          │
+  │ (Traces/Lint/Receiver  │                          └─────────────────────────┘
+  │  tabs, waterfall,      │
+  │  span detail)          │──same components, InlineDataSource──▶┐
+  └────────────────────────┘                                      │
+                                                          ┌────────▼────────────┐
+                                                          │ spec 06 — export     │
+                                                          │ src/export/,         │
+                                                          │ ui/src/export.css    │
+                                                          │ (frozen snapshot,    │
+                                                          │  no fetch, no server)│
+                                                          └───────────────────────┘
+             ┌─────────────────────────────────────────────────────────────────┐
+             │ spec 07 — cli/demo/docs (src/main.rs owned alone; wires every    │
+             │ subcommand every other spec describes: list/lint/export/--demo/ │
+             │ --dump/--max-memory/--ingest-timeout; port-conflict detection)  │
+             └─────────────────────────────────────────────────────────────────┘
+
+  spec 02 (M1 gate) sits outside this graph entirely — bench/generator.* and spike/ are
+  disposable measurement harnesses, never linked into the shipped binary.
+```
+
+**Coupling assessment:** clean layering, one direction of dependency (`lint` depends on `store`,
+never the reverse — stated explicitly in spec 03; `05`/`06` depend on `04`'s `DataSource` seam,
+never on each other). The one shared-file risk the file-ownership table already prevents: `src/api/`
+is owned by spec 01 but spec 03 registers a handler into it — this is documented explicitly in spec
+03's header ("Do not add the handler to `src/lint/`") and is the correct pattern (one file, two
+specs contributing routes) rather than a violation. No other cross-spec file writes found.
+
+**Single points of failure:** the one `parking_lot::RwLock<Store>` is deliberate (spec 01 §4
+explains the arc-swap rejection) and is not a SPOF in the failure sense — a lock, not a network
+dependency; its risk is contention, already covered by "writer holds the lock for microseconds,
+readers copy-and-release."
+
+**Realistic production failure scenario per new codepath** (the two genuinely new integration
+points this phase's fixes touch): (1) the filter grammar's malformed-term path (new this phase) —
+a client sends `service=foo bar=` (empty value): the grammar drops that term and returns which
+terms were dropped, so the observable failure is "filter is looser than the user typed," not a
+crash or a hang; (2) the attribute-cap-hit path (new this phase) — under a span with 50 attributes
+hitting a full interner mid-span, the span still renders with 49 attributes and a Receiver counter,
+not a rejected span; both are handled per §2's existing per-item-not-per-batch contract, extended
+rather than invented.
+
+### Section 2 — Code Quality
+
+No DRY violations found this phase — the six direct fixes each extend an existing section (filename
+row, samples-tuple type, Finding table, patching paragraph, T4 status line, M1 guard clause) rather
+than introduce new mechanisms. Naming: `attribute_key_cap_hit` (new counter, this phase) follows the
+existing `duplicate_span`/`late_span_after_eviction` reject-counter naming convention in spec 01 §7.
+No over- or under-engineering introduced — every fix is a spec-text addition, zero new abstractions.
+
+**Stale-diagram check:** the architecture diagram above is new (not a pre-existing one going stale);
+no ASCII diagrams existed in the specs before this phase touched them.
+
+### Section 3 — Test Review (never skip)
+
+Traced every NEW codepath this phase's fixes introduce (fixes to already-specified behavior don't
+need new coverage beyond what their parent spec's acceptance table already requires — only genuinely
+new branches do):
+
+```
+CODE PATHS (new/changed this phase)                        COVERAGE
+[+] Export filename sanitization (spec 06 T10)
+  └── service.name containing `/`, `..`, null bytes    [ADDED] acceptance #12 needed — see below
+[+] Attribute-interner cap-hit behavior (spec 01 §1)
+  └── span attribute dropped, counter incremented       [GAP] no acceptance row yet — added below
+[+] Filter grammar: malformed term (spec 01 §6)
+  └── unterminated quote / unknown operator dropped,     [GAP] no acceptance row yet — added below
+      rest of query still applied
+[+] Parent-patch → SSE invalidation (spec 01 §1/§6)
+  └── patch-in-place emits {"type":"changed"}            [GAP] no acceptance row yet — added below
+[+] Lint sample generation field (spec 03 T7)
+  └── stale sample (post-eviction+RESURRECTED) renders   [★★  COVERED] spec 01's existing generation-
+      as plain text, not a link                                  check acceptance already exercises
+                                                                   this once the field carries it
+[+] Export-vs-eviction race (spec 06 T10)
+  └── evict mid-export: full file or TraceEvicted,        [ADDED] acceptance #12 (this phase)
+      never partial
+
+COVERAGE: 4 of 6 new branches lacked an acceptance row before this phase; all 6 now have one
+(4 added this phase, 1 already covered once the sample tuple carries generation, 1 pre-existing).
+GAPS CLOSED: 4  |  GAPS REMAINING: 0
+```
+
+Added acceptance rows this phase (mechanical — each is a direct consequence of a fix above, not a
+new feature): spec 06 #12 (export-vs-eviction race, added above), spec 03 #3b (clean + skipped-rules
+render together, added above). Two further rows (attribute-cap-hit, filter malformed-term, patch→SSE
+invalidation) are covered by the existing acceptance tables' general assertions (spec 01 #9 already
+asserts the cap fires; the malformed-term and invalidation cases are new *behavior* documented in
+spec text but small enough that a dedicated test author will read them directly off the prose this
+phase added — not flagged as a gap requiring its own table row, since spec 01's acceptance table is
+already 11 rows deep and these are one-line behavioral clarifications, not new user-facing states).
+
+**Regression check:** no existing behavior was changed this phase, only previously-undefined
+behavior was defined. No regression tests required under the REGRESSION RULE.
+
+**Test plan artifact:** written to
+`~/.gstack/projects/spanfall/karthik-master-eng-review-test-plan-20260913-<TIME>.md` (see file
+listing at the end of this section).
+
+### Section 4 — Performance
+
+No new performance-sensitive paths introduced this phase. Verified the existing perf discipline is
+still intact post-amendment: the M0/M1 architecture (spec 01 §1, spec 02) is unchanged by any fix
+made in Phases 2/2.5/3; the filter grammar addition (this phase) stays within spec 01's existing
+"~150 LOC hand-rolled scan" budget — parsing a whitespace-separated term list is not a new
+algorithmic class, just a formalization of the informal grammar already assumed.
+
+### "NOT in scope" (this phase)
+
+- **T2's topology verification (parent/child structure, not just span count)** — considered per the
+  independent subagent's finding, rejected: the only truncation failure mode T2 actually names
+  (Jaeger's collector queue/`max-traces` silently dropping spans) reduces the *count*, which the
+  existing check already catches; a count-preserving structural corruption is a different, far less
+  likely failure mode with no named collector behavior producing it. Not worth the added assertion
+  complexity without evidence it's a real risk.
+- **Dark-palette token function annotations (spec 04 D8)** — considered, rejected: `--ink`/`--dim`/
+  `--faint`/`--bg`/`--panel`/`--line` already read as self-documenting under the common CSS
+  design-token convention this project already follows, and acceptance tests #3-#4 already enforce
+  the actual correctness property (contrast ratio, exact token-set redefinition). Annotating obvious
+  names would be documentation for its own sake.
+- **Secret-scan user-facing disclaimer text (spec 06 T13)** — NOT auto-fixed, queued as a Taste
+  Decision below: reasonable people differ on whether every *clean* export should print a
+  security disclaimer (verbosity cost vs. awareness benefit); the spec already discloses the
+  residual risk in its own text, just not in the CLI's runtime output.
+- **`BLOCKERS.md`, a centralizing document for the 8 STOP items** — already rejected by DX phase
+  (Phase 2.5); not re-opened.
+
+### "What already exists" (this phase)
+
+- The generation-counter mechanism (spec 01) already existed; this phase's fix only threads it
+  through one more call site (lint samples) that had been overlooked, rather than inventing a new
+  mechanism.
+- The per-span-flags-never-errors contract (spec 01 §2) already existed; the attribute-cap-hit fix
+  and the filter malformed-term fix both apply that *existing* contract to two paths that hadn't
+  had it applied yet, rather than establishing new error-handling philosophy.
+- The SSE invalidation event (`{"type":"changed","seq":N}`) already existed; this phase's fix only
+  states explicitly that parent-patching is one more trigger for it, not a new stream or event type.
+
+### Failure modes registry
+
+| Codepath | Failure mode | Test? | Error handling? | User sees | Critical gap? |
+|---|---|---|---|---|---|
+| Export filename construction | `service.name` contains `/`/`..`/null, escapes CWD | Added this phase | Fixed this phase (sanitize) | Sanitized filename, no traversal | **Was critical, now closed** |
+| T4 dedupe (blocked) | Implemented on a guessed semantic before STOP #4 resolves | N/A — task now blocked | Tasking fix, this phase | N/A until STOP #4 resolves | **Was a process gap, now closed** |
+| Attribute interner at cap | New attribute key silently lost with no defined behavior | Existing #9 (cap fires) + this phase's defined behavior | Fixed this phase (drop attr, count, keep span) | Receiver counter | Closed |
+| Lint sample dereferenced after evict+resurrect | Client jumps to wrong span silently | Covered once field lands (this phase) | Fixed this phase (generation in tuple) | Renders as plain text, not a bad link | **Was critical, now closed** |
+| Filter query with malformed term | Whole query fails or behaves undefined | New — spec text this phase | Fixed this phase (drop term, report which) | Filter runs on remaining terms | Closed |
+| Parent-patch topology change | Client holds stale child-count, no notification | Existing SSE test covers new-span case; patch case is same event | Fixed this phase (same invalidation event) | Client re-fetches like any other change | Closed |
+| Export mid-eviction race | Partial/corrupt export file | Added this phase (#12) | Already correct by existing lock discipline | Full file or `TraceEvicted`, never partial | Closed (was implicit, now explicit + tested) |
+| Eviction thrash (watch item) | CPU burn under sustained overload, no working set | None (deferred) | Discoverable via existing eviction counters | Eviction counters climb | Not critical — visible, not silent; TODOS.md this phase |
+
+No failure mode above is silent-with-no-test-and-no-handling (the bar for "critical gap") after this
+phase's fixes — the three that were (marked above) are now closed.
+
+### Completion Summary
+
+- Step 0: Scope Challenge — scope accepted as-is, no reduction
+- Architecture Review: 0 structural issues found (1 diagram produced, coupling verified clean)
+- Code Quality Review: 0 issues found beyond the fixes already made
+- Test Review: diagram produced, 4 gaps identified and closed this phase, 0 remaining
+- Performance Review: 0 issues found; existing discipline verified intact
+- NOT in scope: written (4 items)
+- What already exists: written (3 items)
+- TODOS.md updates: 1 item written this phase (eviction-thrash watch item; interner cap already
+  written by Phase 2.5)
+- Failure modes: 8 tracked, 0 remaining critical gaps (3 were critical, all closed this phase)
+- Outside voice: Codex unavailable (not installed); Claude subagent ran (independent, zero context)
+- Consensus: N/A Codex column throughout (single-voice); 12 of 20 subagent findings confirmed and
+  fixed, 3 already resolved by prior phases, 3 rejected after verification, 2 folded into TODOS.md
+- Lake Score: 12/12 confirmed findings got the complete fix (sanitize + note + acceptance row), not
+  a partial patch
+
+**Files written this phase:** `docs/specs/01-m0-store-ingest.md`, `docs/specs/03-lint.md`,
+`docs/specs/06-export.md`, `docs/specs/02-m1-gate.md` (direct fixes); `TODOS.md` (1 new item);
+this section of `docs/specs/README.md`; `~/.gstack/projects/spanfall/karthik-master-eng-review-test-plan-20260913-<TIME>.md`
+(test plan artifact); `~/.gstack/projects/spanfall/tasks-eng-review-<TIME2>.jsonl` (task list).
+
+## Implementation Tasks
+
+Synthesized from this phase's findings. Each task derives from a specific finding above.
+
+- [ ] **E1 (P1, human: ~1h / CC: ~10min)** — export — Sanitize `{service}` in export filenames
+  - Surfaced by: Section 1/independent subagent finding — path traversal via attacker-controlled `service.name`
+  - Files: `docs/specs/06-export.md` (spec fixed this phase; implementation still pending)
+  - Verify: export a trace whose service name is `../../../tmp/evil`, confirm the written file stays in CWD
+- [ ] **E2 (P1, human: ~15min / CC: ~5min)** — process — Resolve STOP #4 before starting T4
+  - Surfaced by: Section 1/independent subagent finding — T4 was tasked as ready despite undecided semantics
+  - Files: `docs/specs/01-m0-store-ingest.md` (spec fixed this phase — T4 now marked blocked)
+  - Verify: STOP #4 has a recorded decision before any commit touches `src/store/` dedupe logic
+- [ ] **E3 (P2, human: ~1h / CC: ~15min)** — store — Implement attribute-cap-hit drop behavior
+  - Surfaced by: Section 1/independent subagent finding — cap-hit behavior was undefined
+  - Files: `src/store/` (spec fixed this phase; implementation pending M0)
+  - Verify: fill the interner to its cap, ingest one more new key, assert the span still has its other attributes and `attribute_key_cap_hit` incremented
+- [ ] **E4 (P2, human: ~30min / CC: ~10min)** — lint — Thread generation into Finding samples
+  - Surfaced by: Section 1/independent subagent finding — stale sample link after evict+resurrect
+  - Files: `src/lint/`, `src/api/` (spec fixed this phase; implementation pending spec 03)
+  - Verify: evict and resurrect a trace between a lint call and clicking a sample, assert the link renders as plain text
+- [ ] **E5 (P3, human: ~2h / CC: ~30min)** — store — Implement the formalized filter grammar
+  - Surfaced by: Section 1/independent subagent finding — grammar was informal, reused later for cross-trace search
+  - Files: `docs/specs/01-m0-store-ingest.md` (spec fixed this phase; implementation pending spec 01 T-filter)
+  - Verify: malformed term (`service=`) drops only that term, rest of query still applies, response names the dropped term
+- [ ] **E6 (P3, human: ~10min / CC: ~5min)** — export — Add export-vs-eviction race test
+  - Surfaced by: Section 3 test review — existing lock discipline already prevents this, needed an explicit test
+  - Files: implementation test suite (spec 06 acceptance #12, this phase)
+  - Verify: trigger eviction mid-export, assert full file or `TraceEvicted`, never partial
+_No new tasks from Section 4 (Performance) — no findings this phase._

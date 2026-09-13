@@ -148,9 +148,15 @@ The terminal formatter and the JSON API are **thin formatters over this type.** 
 its own wording. If the headline lives in two places, the two surfaces drift, and this was recorded
 as a finding rather than a style preference.
 
-Samples: `[(trace_id, span_idx); ≤3]`. Since findings are computed from resident traces, every
-sample is a live reference — no generation check is needed *inside lint*. (The store's generation
-counter from spec 01 still applies when a stored reference is dereferenced later.)
+Samples: `[(trace_id, span_idx, generation); ≤3]`. Since findings are computed from resident
+traces, every sample is a live reference at compute time — no generation check is needed *inside
+lint*. **The `generation` field exists for later, not for now (eng review, 2026-09-13):** the JSON
+response travels to the browser and may sit there before the reader clicks a sample — long enough
+for the trace to be evicted and re-arrive (`RESURRECTED`, spec 01), reusing the same `trace_id` with
+a bumped generation and reset span indices. Without `generation` in the sample itself, the client
+has nothing to compare against spec 01's generation check when it later dereferences the link, and
+would silently open the wrong span in the new trace. Include it in every sample tuple so the
+existing dereference check (spec 01 §1) has something to compare.
 
 ---
 
@@ -310,6 +316,7 @@ Spec-specific additions:
 | 1 | **Fix-and-verify, no restart.** `lint` → findings; fix instrumentation; re-run the request; `lint` → **clean**, with the old bad traces still resident. |
 | 2 | `lint --all` on that same store **still reports the old findings**, and says how many traces it examined. Both readings are correct and each names its input. |
 | 3 | The default run names both skipped rules and prints the command. Grep the output for the rule names. |
+| 3b | **(eng review, 2026-09-13)** A trace with zero per-trace findings still prints the skipped-rules line alongside "clean" — clean-at-this-scope and rules-not-run-at-this-scope are independent facts and both render together, never one suppressing the other. |
 | 4 | `--all` evaluates all six and says so. |
 | 5 | Two `lint` calls with no traffic between them return **identical** output. |
 | 6 | A deliberately panicking rule yields "1 rule failed" with the other findings intact, and the process survives. |
