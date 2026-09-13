@@ -173,6 +173,24 @@ first real user reporting a rule as too noisy or too quiet on their app. CI asse
 **Priority:** P3
 **Depends on:** A real complaint. Do not build speculatively.
 
+### Pin the attribute-key/service-name interner cap value
+
+**What:** `docs/specs/01-m0-store-ingest.md`'s global interner (attribute keys, service names) has
+"a hard cap that raises a Receiver warning instead of growing" — the cap's *value* is never stated.
+
+**Why:** Not on the formal STOP list, but shares its risk profile: a guessed number could be wrong
+by roughly the same margin `--max-memory` itself warns about for bytes/span (~5x, attribute-density
+dependent). Flagged by both DX review voices (`/autoplan`, 2026-09-13) independently; neither
+proposed a number, since neither had M1-quality measurement data to ground one.
+
+**Context:** Low urgency — the cap's own design surfaces an overrun as a visible Receiver warning,
+not a silent failure, so an imperfect first value is discoverable rather than dangerous. Natural to
+pin alongside `--max-memory` once M1 (spec 02) measures real bytes/span and key cardinality.
+
+**Effort:** XS (human ~15min / CC ~5min) once M1 data exists
+**Priority:** P3
+**Depends on:** M1 measurement (spec 02). Do not guess a number before then.
+
 ## Design (deferred from design review 2026-09-13)
 
 Full findings and the approved directions live in `docs/designs/tracescope-v1.md`, section

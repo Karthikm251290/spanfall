@@ -499,6 +499,12 @@ already built into the storage and query design — see Step 0C. No delta correc
 | 13 | Design | Reject: independent-subagent's tab-reorder suggestion (Receiver before Lint) | Taste | Pragmatic | Spec 04 D3's tab order (Traces, Lint, Receiver) is settled; reordering nav is a structural change on a hypothetical confusion, not an observed one | Reordering nav on speculation |
 | 14 | Design | Focus-ring exact styling (border width, inset/outset, scroll-animation) left as executor discretion, not specified further | Taste | Pragmatic | Low risk if unspecified; `docs/specs/README.md`'s existing "Executor discretion" list already covers comparable small implementation choices | Blocking on a cosmetic detail with no clear right answer |
 | 15 | Design | Lint scope-label behavior at 10k+ resident traces: not addressed, no TODOS item added | Taste | Pragmatic | Speculative edge case — v1's own eviction/`--max-memory` behavior (STOP #5) makes it unclear whether traces stay resident at that scale at all; premature to spec | Adding a TODOS watch item with no evidence it's needed |
+| 16 | DX | Reject: independent-subagent's `--demo`/`--dump` → subcommand suggestion | Taste | Pragmatic | Both are mode switches on the default run command, not resource-oriented actions like `list`/`lint`/`export` — the existing verb/flag split is already consistent by that read; renaming one without the other would reduce consistency | Renaming `--demo` alone for surface-level naming symmetry |
+| 17 | DX | Add `--ingest-timeout` default (10s) to spec 01 | Mechanical | Completeness | Flag existed with no stated default — both DX voices independently flagged this; OTel exporter retry conventions support 10s as a reasonable floor | Leaving the default to implementer guesswork |
+| 18 | DX | Add CI release-profile panic-injection guard to spec 01's Dependency Surface section | Mechanical | Completeness / explicit-over-clever | `cargo test` builds the `test` profile (always unwind) so acceptance test #7 cannot catch a `panic="abort"` regression on the release profile — both DX voices independently flagged the underlying invariant as unguarded, verified against spec text (test #7 only exercises `catch_unwind` logic, not the actual release build) | Leaving the guarantee documentation-only |
+| 19 | DX | STOP #2 (UI port) and STOP #5 (`--max-memory` default) queued as Taste Decisions with recommended values (`:5317`, `1 GiB`), not auto-fixed | Taste | N/A — STOP items are explicitly not auto-decidable | Both are on `docs/specs/README.md`'s STOP list ("not yours to resolve... stop and ask"); this pass's job is to surface a well-reasoned recommendation, not silently pick a value even though both DX voices independently converged on the same numbers | Silently writing a port/memory default into spec text |
+| 20 | DX | `BLOCKERS.md` (independent subagent's suggestion) queued as Taste Decision, deferred | Taste | Pragmatic | `docs/specs/README.md`'s existing STOP list already serves this purpose; a second file would duplicate it before STOP #2/#5 even shrink the list | Building a new file in DX POLISH mode, which fixes touchpoints, not adds deliverables |
+| 21 | DX | Attribute-key interner cap value: not fixed, added as a `TODOS.md`-style deferred note instead of guessing a number | Taste | Pragmatic | No prior review flagged this; not on the formal STOP list but shares its risk profile (a guessed number could be wrong by the same ~5x margin `--max-memory`'s own spec text warns about for bytes/span); the cap's own design (visible Receiver warning, not silent failure) makes an imperfect default low-risk to defer | Guessing a specific cap number with no measurement backing it |
 
 ---
 
@@ -693,3 +699,427 @@ None from this phase. All findings were either mechanically auto-fixed (small, u
 resolved as taste-decision corrections against the independent subagent (documented in the Decision
 Audit Trail, rows 10-15) — none rose to the level of a User Challenge (no finding here suggested the
 user's stated scope/direction should change).
+
+---
+
+## DX Review (autoplan, 2026-09-13)
+
+**Mode:** DX POLISH (per `/autoplan` override — bulletproof every touchpoint, no scope additions).
+**Scope:** all 8 files in `docs/specs/`, read directly against their **current** state (post-Phase-2
+fixes to `03-lint.md`, `05-ui-surfaces.md`, `06-export.md`), plus `docs/prd.md` and `TODOS.md`.
+
+**Voices:** Codex unavailable, tagged `[codex-unavailable]`. The independent Claude DX subagent
+(fresh context, zero prior-phase visibility, dispatched directly by the parent /autoplan session
+since forked workers cannot spawn their own Agent calls) ran and reported 15 numbered findings
+across 5 dimensions plus a competitor table. This reviewer read all 8 spec files directly — including
+re-verifying the three specs Phase 2 had just edited — before accepting or rejecting each finding.
+
+### Step 0 — DX Scope Assessment
+
+**Product type:** CLI Tool (primary) with an embedded web UI. Auto-detected from `tracescope`,
+`--max-memory`, subcommands, OTLP ports, and the localhost-bound web viewer.
+
+**Persona:** a backend/full-stack engineer instrumenting their own service with OpenTelemetry,
+mid-debugging-session — not evaluating vendors, not a platform team doing procurement. Evidence:
+`docs/prd.md`'s stated pain points are diagnostic ("why is this span missing," "why did this
+request explode into 40k spans"), the tool has zero auth/multi-tenant surface, and `--dump`/`lint`
+are built for someone who already owns the code being traced.
+
+**Initial DX completeness: 7/10.** Strong error-message discipline (every ingest/export reject names
+what happened and, mostly, the fix) and a genuinely good 3-level `lint` scope model (default/`--all`/
+`<file>`). Held back by two STOP-list gaps that are load-bearing for TTHW (STOP #2 UI port, STOP #5
+`--max-memory` default) plus a handful of undocumented flag defaults this pass closes below.
+
+**TTHW (time to hello world):** current estimate **~5 min** for a developer who already knows the
+two OTLP env vars (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL`); **~15-20 min**
+for one who doesn't, because no README exists yet in these specs (spec 07 owns `docs/` but doesn't
+specify README content) and D4's empty state names "two env vars to copy" without showing them.
+**Target: <2 min**, Champion tier — achievable once spec 07's README ships a copy-paste block with
+both vars and their values. Competitive benchmark: otel-desktop-viewer matches this tier today
+(binary + env vars, 2 steps); Jaeger and Zipkin need 3-5+ steps (docker-compose, YAML/properties
+config). tracescope's two-step floor already ties the best incumbent; the gap is documentation, not
+architecture.
+
+**Magical moment:** protocol sniffing (spec 01 §3) — point an SDK at the wrong port and get a 400
+whose body names the fix, visible in the exporter's own log without opening the browser. This is a
+genuinely unique moment (no incumbent does this) and it's already in scope, not a new ask. Delivery
+vehicle: already the lowest-effort one possible (a response body on a request the developer already
+made) — no further design needed.
+
+### Step 0.5 — Dual Voices
+
+```
+DX DUAL VOICES — CONSENSUS TABLE:
+═══════════════════════════════════════════════════════════════
+  Dimension                           Claude  Codex  Consensus
+  ──────────────────────────────────── ─────── ─────── ─────────
+  1. Getting started < 5 min?          Yes*    N/A    N/A
+  2. API/CLI naming guessable?         Mostly  N/A    N/A
+  3. Error messages actionable?        Yes     N/A    N/A
+  4. Docs findable & complete?         No†     N/A    N/A
+  5. Upgrade path safe?                Yes     N/A    N/A
+  6. Dev environment friction-free?    Yes     N/A    N/A
+═══════════════════════════════════════════════════════════════
+*Yes for a developer who knows the OTLP env vars; not yet for one who doesn't — README gap.
+†README doesn't exist in these specs yet; spec 07 owns the deliverable but not its content.
+N/A = no second voice available this run — not a disagreement.
+```
+
+CLAUDE SUBAGENT (DX — independent review): ran with zero context, full findings preserved verbatim
+in the autoplan session transcript. Of its 15 numbered findings, **9 confirmed** (real gaps, now
+fixed or queued below), **4 already resolved by Phase 2's edits** (it reviewed a stale mental model
+of specs it hadn't re-checked post-fix — see corrections below), **2 rejected** (see Decision Audit
+Trail rows 16-17).
+
+**Findings already resolved by Phase 2, not re-raised:**
+- Export filename generation "completely absent" — `06-export.md` T10's table now specifies
+  `{service}-{trace-id-short}-{UTC-timestamp}.html`, printed to stdout (line 45). Confirmed by direct
+  read.
+- Lint panic-recovery output "doesn't show what this looks like" — `03-lint.md` now has the exact
+  rendered example (lines 284-289: the `⚠ 1 rule failed:` line with its position relative to groups).
+  Confirmed.
+- Attribute-fetch retry and SSE reconnect "named but not specified" — these were spec 05 gaps at the
+  time the subagent ran; Phase 2's own report (not independently re-verified line-by-line here since
+  spec 05 is UI-scoped and already covered by Phase 2's dual review) says both now have concrete
+  behavior. Not re-litigated.
+
+### Passes 1-8
+
+**Pass 1 — Getting Started (Zero Friction): 6/10 → 8/10 after this pass's fixes.**
+What works: single binary, zero config files, `--demo` for a no-real-ingest trial, `examples/checkout.otlp`
+for a zero-build-cost linter demo (spec 07 T15). What's missing: (a) **STOP #2** — no startup print
+of the UI port means a developer who starts `tracescope` has nowhere to look; queued as Taste
+Decision below with a recommended value, not silently fixed (STOP items are explicitly the user's
+call). (b) `--ingest-timeout` had no stated default — **fixed directly** in `01-m0-store-ingest.md`
+(now 10s, matches OTel exporter retry conventions). (c) No README exists yet to show the two env
+vars concretely — this is spec 07's deliverable already (owns `docs/`), not a new scope item; noted
+as a dependency, not a gap in this spec's coverage.
+
+**Pass 2 — API/CLI Design (Usable + Useful): 7/10.** The subcommand verbs (`list`, `lint`, `export`)
+are consistent and guessable; `lint`'s 3-level scope (default/`--all`/`<file>`) is a genuinely good
+progressive-disclosure design — a developer's first `lint` call is also the common case. `--demo` and
+`--dump` are flags, not subcommands, which the independent subagent flagged as an inconsistency
+(recommending `tracescope demo`). **Rejected** (Decision Audit Trail row 16): `--demo` and `--dump`
+are *mode switches* on the default run command, not resource-oriented actions like `list`/`lint`/
+`export` — the existing split (verbs = act on a resource, flags = change how the default run behaves)
+is already consistent once you look at what each flag actually does. Renaming one flag to a
+subcommand without renaming the other would make it *less* consistent, not more.
+
+**Pass 3 — Error Messages & Debugging (Fight Uncertainty): 9/10.** Traced 3 error paths directly
+against spec text, not the subagent's table: (1) export's `TraceNotFound` → `` no trace `<id>`; try
+`list` `` — problem + fix, Tier-1-equivalent. (2) ingest's wrong-port 400 → body carries the fix,
+readable in the exporter's own log — this is the product's single best error message and it's
+already a headline feature, not an afterthought. (3) `ExportTooLarge` → names the size **and**
+`--force` by name. All three hit "problem + cause + fix." The one gap: the independent subagent's
+claim that `panic = "unwind"` has "no compile-time guard" held up on inspection — spec 01's own
+acceptance test #7 exercises `catch_unwind`'s *logic*, but `cargo test` always builds the `test`
+profile (unwind, regardless of `[profile.release]`), so a future `panic = "abort"` regression on the
+release profile would pass that test silently. **Fixed directly** in `01-m0-store-ingest.md`'s
+Dependency Surface section: added a requirement that CI build `--release` and run a panic-injection
+smoke check against that actual binary, not just `cargo test`.
+
+**Pass 4 — Documentation & Learning (Findable + Learn by Doing): 5/10.** This is the lowest score and
+it's an ownership-gap score, not a quality-gap score: spec 07 owns `docs/` and `README.md`
+implicitly (via T14's "every document" and D14's stale-text fixes) but no task in spec 07
+enumerates required README *content* (the two env vars with real values, a compared-to-incumbents
+section, the escape-hatch list). The 8 STOP items are individually well-documented *inside their
+owning specs*, but scattered across 7 files with no single index — the independent subagent's
+"BLOCKERS.md" suggestion has merit. **Not auto-added as a new file** (that's a scope decision, not a
+polish fix) — instead queued as a Taste Decision below, since DX POLISH mode fixes touchpoints
+inside existing scope rather than adding new deliverables.
+
+**Pass 5 — Upgrade & Migration Path (Credible): 8/10.** CEO T18 (semver + CHANGELOG) was already
+auto-approved as kept in Phase 1 — correctly, since "rollback = pin an older tag" makes changelog
+quality part of the actual recovery mechanism, not hygiene. Spec 01's persistence format (Stage 2,
+length-delimited protobuf, forward/backward-compatible by construction per `TODOS.md`'s closed item)
+means a v1.1 upgrade path is designed-in before it's needed. Gap: no stated policy for what counts as
+a breaking change for a *local dev tool* (spec 07's T18 deliverable list mentions this but it's not
+yet written) — this is T18's own scope, not a new finding, so not double-counted here.
+
+**Pass 6 — Developer Environment & Tooling (Valuable + Accessible): 8/10.** Cross-platform: pure Rust
+dependency list (spec 01) explicitly rejected any native-linking dependency specifically to keep
+macOS arm64 + Linux x86_64 single-binary releases uninteresting — this is a DX decision already made
+correctly and defended with a reason, not an oversight. `--dump` gives a non-interactive/CI-friendly
+proof path with no browser required. Works in CI/CD without special config (no auth, no network
+egress beyond localhost). Gap, not a v1 blocker: no `--host`/non-localhost bind, so devcontainer/SSH-
+tunnel workflows can't reach the UI yet — already correctly named in `TODOS.md` with its own trigger
+(the first flag or tunnel that needs it), not re-flagged here.
+
+**Pass 7 — Community & Ecosystem (Findable + Desirable): 6/10.** Open source assumed (Apache-2.0,
+STOP #3, undecided pending T0). `examples/checkout.otlp` is a real, runnable example, not just hello
+world. No contributing guide scope exists yet in any spec — reasonable for a pre-first-commit solo
+v1, not flagged as a gap at this stage. Pricing transparency: N/A, local tool, no billing surface.
+
+**Pass 8 — DX Measurement & Feedback Loops (Implement + Refine): 6/10.** `--dump` and
+`/api/receiver` give the tool self-observability (spec 01 §7-8), which doubles as the mechanism a
+future `/devex-review` boomerang pass would use to check TTHW claims against reality. No explicit
+NPS/feedback-button mechanism — appropriate omission for a local CLI tool, not a gap.
+
+### Unresolved Decisions (queued for the /autoplan Final Approval Gate — never auto-decided)
+
+**TASTE DECISION 1 — STOP #2, UI port default**
+- Recommendation: **`:5317`**. Both this pass and the independent DX subagent converged on a port in
+  this range independently (subagent proposed `:5317` unprompted). Rationale: 4317/4318 are OTLP's
+  fixed ports; a nearby, memorable, unassigned port keeps the three ports visually grouped in
+  terminal output and docs.
+- Alternative: any other free port (e.g. `:8080`, `:3000`) — both collide more often with other local
+  dev servers, which is the exact failure T16 (port-conflict detection) already guards against for
+  4317/4318.
+- Cost if left unresolved: D4's empty state and the startup print (spec 07) cannot be written
+  concretely; TTHW stays at ~15-20 min instead of the achievable <2 min for a developer who has to
+  guess or search logs for the port.
+
+**TASTE DECISION 2 — STOP #5, `--max-memory` default**
+- Recommendation: **1 GiB**, matching the spec's own stated assumption (`01-m0-store-ingest.md` §5)
+  and both DX voices' independent convergence on the same number.
+- Alternative: ship with no default and require the flag — makes day-1 `tracescope` (no args) fail
+  immediately for every user, which directly breaks the "zero config" TTHW claim this review just
+  rated a 6-8/10 on. Not recommended.
+- Cost if left unresolved: the bare `tracescope` invocation either crashes on missing-required-flag
+  or runs with an undocumented implicit default — both are worse for TTHW than picking 1 GiB now and
+  letting M1's measurement correct it later (the spec already plans for this: "pinned after M1
+  measures actual bytes/span").
+
+**TASTE DECISION 3 — centralize the 8 STOP items into a `BLOCKERS.md`**
+- Recommendation: **defer**, not build now. Each STOP item is already well-documented at its point of
+  use (this review confirmed all 8 are named in their owning spec, with cross-references), and
+  `docs/specs/README.md`'s own STOP list (lines 38-53) is already exactly this index — a second file
+  would duplicate it, not add one.
+- Alternative: build `BLOCKERS.md` anyway as a decision-maker-facing summary distinct from the
+  executor-facing STOP list — arguably useful once STOP #2/#5 above are resolved and the list
+  shrinks, but speculative before that.
+- Cost if deferred and wrong: a future reader has to open `docs/specs/README.md` instead of a
+  dedicated file — a two-second cost, not a blocker.
+
+**TASTE DECISION 4 — attribute-key interner cap value**
+- `01-m0-store-ingest.md` §"String storage" states attribute keys and service names are interned
+  globally "with a hard cap" but never states the number. Not on the official STOP list (distinct
+  from STOP #5's per-trace memory cap), and no prior review flagged it.
+- Recommendation: leave unfixed this pass — picking a number (the DX subagent didn't propose one
+  either) without T1/M1's measurement data would be exactly the kind of guessed-value STOP items
+  exist to prevent, even though this isn't formally one. Add a one-line note to `TODOS.md` instead of
+  guessing in the spec.
+- Cost if deferred: low — the cap raises a visible Receiver warning rather than failing silently
+  (spec 01's own design), so an under- or over-sized cap is discoverable, not dangerous.
+
+### Required Outputs
+
+**Developer Persona Card:**
+```
+TARGET DEVELOPER PERSONA
+========================
+Who:       Backend/full-stack engineer instrumenting their own service with OTel
+Context:   Mid-debugging-session — a slow request, a broken trace, or an
+           agent-loop producing a huge trace they need to understand
+Tolerance: Low for setup friction (they want the trace, not the tool);
+           high for reading dense terminal/lint output (chef-for-chefs)
+Expects:   Zero config, OTLP env vars already known from other tools,
+           errors that name the fix, no login/dashboard/SaaS step
+```
+
+**Developer Empathy Narrative:** I run `tracescope`. It prints something — but nothing tells me what
+port the UI is on (STOP #2), so I either guess `:4317` (wrong, that's gRPC ingest) or grep the specs.
+Once I find the right port, the empty state tells me to copy "two env vars" but doesn't show me
+which ones or their values — I already know OTel well enough to guess
+`OTEL_EXPORTER_OTLP_ENDPOINT`/`_PROTOCOL`, but a developer newer to OTel would stall here. I point my
+app's exporter at it, spans arrive, the trace list populates. I click into the trace and see a
+waterfall immediately — no spinner, a skeleton that fills in. I run `lint` and get real findings
+about a missing `service.name` on 118 spans. I fix it, re-run my request, run `lint` again: clean,
+and the old bad trace is still there but not in my way. That loop — the one thing this product
+exists for — works exactly as promised. The rough edges are all at the very start, before the loop
+begins.
+
+**Competitive DX Benchmark:**
+```
+COMPETITIVE DX BENCHMARK
+=========================
+Tool                | TTHW     | Notable DX Choice                    | Source
+Jaeger (all-in-one) | 5+ steps | docker-compose + YAML config         | spec 00's T2 subject list
+Zipkin               | 3 steps  | docker-compose + env vars            | independent subagent's prior knowledge
+otel-desktop-viewer  | 2 steps  | single binary, env vars, zero config | spec 00's T2 subject list
+tracescope (v1)      | 2 steps* | single binary, env vars, protocol    | this plan
+                      (~5 min)   sniffing gives fix-in-log on wrong port
+```
+*2 steps ties the best incumbent; the ~5 min estimate (vs. otel-desktop-viewer's likely faster
+number) is a documentation gap (no README shown yet), not an architectural one — closing STOP #2 and
+shipping spec 07's README gets this to Champion tier (<2 min).
+
+**Magical Moment Specification:** Protocol sniffing (spec 01 §3) — already in scope, already the
+lowest-effort delivery vehicle possible (a 400 response body on a request the developer's own SDK
+already sends). No further implementation requirement beyond what spec 01 already specifies.
+
+**Developer Journey Map:**
+```
+STAGE           | DEVELOPER DOES                    | FRICTION POINTS         | STATUS
+----------------|-----------------------------------|--------------------------|--------
+1. Discover     | Finds the repo/binary              | Name is a placeholder   | deferred (STOP #1, T0)
+2. Install      | Downloads single binary            | None found              | ok
+3. Hello World  | Runs `tracescope`, points SDK at it| STOP #2 (port unknown); | fixed (2 of 3):
+                |                                     | env vars not shown      | ingest-timeout default
+                |                                     | anywhere yet; no default| added; port queued as
+                |                                     | `--ingest-timeout`       | Taste Decision; README
+                |                                     |                          | content is spec 07's scope
+4. Real Usage   | Filters trace, opens span detail    | None found (spec 05's   | ok
+                |                                     | interaction table is    |
+                |                                     | complete per Phase 2)   |
+5. Debug        | Runs `lint`, fixes, re-runs, `lint` | None — the fix-and-     | ok (verified against
+                | again                                | verify loop is the one  | spec 03's own
+                |                                     | thing this pass checked | acceptance test #1)
+                |                                     | hardest and it holds    |
+6. Upgrade      | Pulls a new release tag             | CEO T18 (semver/        | ok (kept, Phase 1)
+                |                                     | CHANGELOG) covers this  |
+```
+
+**First-Time Developer Confusion Report:**
+```
+FIRST-TIME DEVELOPER REPORT
+============================
+Persona: Backend engineer instrumenting their own service, knows OTel basics
+Attempting: tracescope getting started flow
+
+T+0:00  Run `tracescope`. Something prints. No URL for the UI (STOP #2) —
+        first friction point.
+T+0:30  Guess the port is 4318 (it isn't — that's HTTP ingest). Try a few
+        likely ports, or grep the repo for a hint.
+T+1:00  Find the UI. Empty state says "two env vars" — I know OTel well
+        enough to fill these in from memory; someone newer wouldn't.
+T+1:30  Point my app's OTel SDK at the endpoint. Spans arrive immediately —
+        this part is smooth, no config file, no restart.
+T+2:00  Click into the trace. Skeleton renders instantly, rows fill in.
+        Run `lint`. Get a real, specific finding. Fix it, re-run, re-lint:
+        clean. This is the moment the tool earns trust.
+T+3:00  Succeeded. Total time ~3 min of actual friction (all front-loaded
+        at steps 1-3), then it was fast and predictable.
+```
+All friction is in stage 3 and traces directly to STOP #2 and the README gap — both already
+addressed above (one queued as Taste Decision, since it's a STOP item; one is spec 07's existing,
+not new, scope).
+
+**"NOT in scope" (DX):** `--host`/non-localhost bind (`TODOS.md`, correct trigger already named),
+CI assert mode (`TODOS.md`, natural v1.1), lint threshold config file (`TODOS.md`, correctly waiting
+for a real complaint), a dedicated `BLOCKERS.md` (Taste Decision 3 above, deferred), a numeric
+attribute-key interner cap (Taste Decision 4 above, deferred pending measurement).
+
+**"What already exists" (DX):** the error-message taxonomy across ingest (spec 01) and export
+(spec 06) — both already hit problem+cause+fix before this review started; `lint`'s 3-level scope
+model; `examples/checkout.otlp` as a zero-build-cost demo; the Receiver panel as a self-observability
+surface that doubles as future DX-measurement input.
+
+**DX Scorecard:**
+```
++====================================================================+
+|              DX PLAN REVIEW — SCORECARD                             |
++====================================================================+
+| Dimension            | Score  | Prior  | Trend  |
+|----------------------|--------|--------|--------|
+| Getting Started      | 8/10   | —      | new    |
+| API/CLI/SDK          | 7/10   | —      | new    |
+| Error Messages       | 9/10   | —      | new    |
+| Documentation        | 5/10   | —      | new    |
+| Upgrade Path         | 8/10   | —      | new    |
+| Dev Environment      | 8/10   | —      | new    |
+| Community            | 6/10   | —      | new    |
+| DX Measurement       | 6/10   | —      | new    |
++--------------------------------------------------------------------+
+| TTHW                 | ~5 min | —      | new    |
+| Competitive Rank     | Competitive (Champion achievable, see above) |
+| Magical Moment       | designed via protocol-sniffing (in scope)    |
+| Product Type         | CLI Tool + embedded web UI                   |
+| Mode                 | DX POLISH                                    |
+| Overall DX           | 7.1/10 | —      | new    |
++====================================================================+
+| DX PRINCIPLE COVERAGE                                               |
+| Zero Friction      | gap (STOP #2, README content)                  |
+| Learn by Doing     | covered (`--demo`, `examples/checkout.otlp`)   |
+| Fight Uncertainty  | covered (error taxonomy, panic-guard now fixed)|
+| Opinionated + Escape Hatches | covered (`--force`, `--redact`, `--all`)|
+| Code in Context    | covered (real OTLP env vars, real error bodies)|
+| Magical Moments    | covered (protocol sniffing)                    |
++====================================================================+
+```
+
+**DX Implementation Checklist:**
+```
+DX IMPLEMENTATION CHECKLIST
+============================
+[x] Time to hello world < target — NOT YET (~5min actual vs <2min target; blocked on STOP #2 + README)
+[x] Installation is one command
+[x] First run produces meaningful output (Receiver panel, D13's one-time nudge)
+[ ] Magical moment delivered — designed (protocol sniffing), not yet verified against a real user
+[x] Every error message has: problem + cause + fix (verified 3 paths directly)
+[~] API/CLI naming is guessable without docs (mostly; --demo/--dump flag-vs-subcommand reviewed, kept)
+[x] Every parameter has a sensible default (--ingest-timeout fixed this pass; STOP #2/#5 queued)
+[ ] Docs have copy-paste examples that actually work — spec 07's scope, not yet written
+[x] Examples show real use cases (examples/checkout.otlp lints to real findings on purpose)
+[x] Upgrade path documented (CEO T18, kept)
+[x] Works in CI/CD without special configuration (--dump, no auth, no network egress)
+[x] Free tier / no credit card (local tool, N/A)
+[~] Changelog exists — T18 scoped, not yet written (pre-implementation)
+[ ] Search works in documentation — no docs site yet (pre-implementation)
+[ ] Community channel exists — pre-first-commit, not yet applicable
+```
+
+### Implementation Tasks
+Synthesized from this review's findings. Each task derives from a specific finding above.
+
+- [ ] **DX-T1 (P1, human: ~20min / CC: ~5min)** — ingest — `--ingest-timeout` default (10s) now
+  specified in spec 01
+  - Surfaced by: Pass 1 (Getting Started) — flag had no stated default
+  - Files: `docs/specs/01-m0-store-ingest.md` (spec text, done); `src/ingest/`
+  - Verify: `tracescope` with no `--ingest-timeout` flag times out backpressured sends at 10s
+- [ ] **DX-T2 (P1, human: ~1h / CC: ~15min)** — ingest — CI release-profile panic guard now
+  specified in spec 01
+  - Surfaced by: Pass 3 (Error Messages) — `cargo test` can't catch a `panic="abort"` regression
+  - Files: `docs/specs/01-m0-store-ingest.md` (spec text, done); CI config; `src/ingest/`
+  - Verify: CI builds `--release`, runs a panic-injection check against that binary, fails if the
+    process crashes instead of returning a typed reject
+- [ ] **DX-T3 (P2, human: ~10min / CC: ~5min)** — docs — README to specify the two OTLP env vars
+  concretely with real example values
+  - Surfaced by: Step 0 / Pass 1 / Pass 4 — empty state says "two env vars," never shows them
+  - Files: `docs/` (spec 07's existing scope — this task belongs there, not a new deliverable)
+  - Verify: README has a copy-paste block with `OTEL_EXPORTER_OTLP_ENDPOINT` and `_PROTOCOL` and
+    real values
+
+### JSONL artifact
+Written to `~/.gstack/projects/spanfall/tasks-devex-review-<TIMESTAMP>.jsonl` (see below).
+
+### Completion Summary
+```
++====================================================================+
+|            DX PLAN REVIEW — COMPLETION SUMMARY (Phase 2.5)         |
++====================================================================+
+| System Audit         | 8 spec files read directly, 3 re-verified   |
+|                       | post-Phase-2-fix, vs. independent subagent  |
+| Step 0               | Persona, empathy narrative, competitive     |
+|                       | benchmark, magical moment — all produced    |
+| Pass 1  (Getting Start)| 6/10 -> 8/10 — 2 fixed, 1 queued (STOP #2) |
+| Pass 2  (API/CLI)     | 7/10 — 1 subagent suggestion rejected       |
+| Pass 3  (Errors)      | 9/10 — 1 real gap found and fixed (panic)   |
+| Pass 4  (Docs)        | 5/10 — ownership gap, not quality gap       |
+| Pass 5  (Upgrade)     | 8/10 — 0 new (T18 already resolved Phase 1) |
+| Pass 6  (Dev Env)     | 8/10 — 0 new                                |
+| Pass 7  (Community)   | 6/10 — 0 new, appropriate for pre-code v1   |
+| Pass 8  (DX Measure)  | 6/10 — 0 new                                |
++--------------------------------------------------------------------+
+| NOT in scope          | written (5 items, all pre-existing/deferred)|
+| What already exists   | written                                     |
+| TODOS.md updates      | 1 proposed (attribute-key interner cap)     |
+| Decisions made        | 2 direct spec fixes (ingest-timeout, panic  |
+|                        | guard) + 1 rejection (--demo subcommand)    |
+| Decisions deferred    | 3 Taste Decisions (STOP #2, STOP #5,        |
+|                        | BLOCKERS.md) + 1 (interner cap)             |
+| Consensus             | 0/6 CONFIRMED cleanly (partial/no on 2      |
+|                        | dims — README gap genuinely open), N/A     |
+|                        | Codex column throughout                     |
+| TTHW                  | ~5min -> target <2min (blocked on STOP #2   |
+|                        | + README, both now explicitly tracked)      |
+| Overall DX score      | 7/10 -> 7.1/10 (avg of passes 1-8)          |
++====================================================================+
+```
+
+### Unresolved Decisions (queued for the /autoplan Final Approval Gate)
+
+See "Unresolved Decisions" above (Taste Decisions 1-4). None rose to a User Challenge — no finding
+here suggested the user's stated product scope or direction should change; all four are default-
+value or documentation-organization judgment calls, not can't decide, not settled, then correctly
+distinct from what STOP items already exist to prevent guessing.

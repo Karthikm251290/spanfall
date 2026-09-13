@@ -43,6 +43,14 @@ decision to surface, not absorb.
 size: the `catch_unwind` guarantee in the ingest path silently stops working, with no compile error
 and no test failure unless a test specifically covers it (`docs/prd.md` §Before Finalizing).
 
+**This guarantee needs a release-profile check, not just a test.** `cargo test` builds the `test`
+profile, which is `panic = "unwind"` regardless of what `[profile.release]` says — so acceptance
+test #7 below passes even if someone later sets `panic = "abort"` on release. CI must add a step
+that builds `--release` and runs a small panic-injection smoke check against *that* binary (e.g.
+`--dump` against a payload that trips the ingest handler's `catch_unwind`, asserting the process
+survives and returns a typed reject rather than crashing). Without this, the release profile can
+silently regress and nothing turns red.
+
 ---
 
 ## 1. Span schema — `src/store/trace.rs`
@@ -197,7 +205,8 @@ Lock discipline, both halves load-bearing:
 
 ### Backpressure — bounded, never dropping
 
-`send().await` blocks. After `--ingest-timeout` it returns a **retryable** error:
+`send().await` blocks. After `--ingest-timeout` (default **10s**, overridable) it returns a
+**retryable** error:
 
 | Transport | Response |
 |---|---|
