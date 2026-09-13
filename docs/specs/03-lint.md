@@ -278,6 +278,16 @@ Each rule runs under `catch_unwind`; a panicking rule is **skipped and counted**
 reports `1 rule failed`. One rule encountering odd data must not take down the run or the process.
 This is also why evaluation happens after the read lock is released.
 
+Rendered as its own line after the last group and before the skipped-rules footer (if any), not
+inside a group:
+
+```
+ADVISORY
+| Long-duration leaf spans over 1s with no children                   12
+
+⚠ 1 rule failed: attribute type conflict (internal error) — other findings unaffected
+```
+
 ## API
 
 `GET /api/lint` returns the findings for the same default scope as the CLI, with the scope, the

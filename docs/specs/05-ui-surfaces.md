@@ -98,6 +98,12 @@ of which `GET /api/traces` already carries (spec 01 §6). Rows fill in afterward
 **No spinner at any point.** A spinner says "wait"; a skeleton drawn from data you already have says
 "here is your trace, the rows are arriving" — and it is honest, because the counts are real.
 
+Frame content, immediate: service list (`checkout, db, payment`), span count (`412`), duration
+(`1.23s`) rendered in the header row where the waterfall rows will appear. Rows then fill top-down
+as they arrive; a row already drawn never moves once placed. If a second trace is opened before the
+first finishes loading, abort the in-flight request (`AbortController`), clear the drawn rows, and
+draw the new trace's skeleton — never merge rows from two traces.
+
 ---
 
 ## D6 — live trace marker, pull to apply
@@ -153,6 +159,10 @@ Build from this table; a surface missing a state is incomplete.
 | Span detail | attributes fetched on click, row stays highlighted | span with no attributes: "no attributes" | fetch fails: inline retry, **panel stays open** | attributes render | — |
 | Lint tab | runs on request, button shows it working | **"no data yet"**, never "0 issues found" | a rule panics: "1 rule failed", others still shown | "clean — no findings" | skipped-rule line naming the rules and the command |
 | Receiver | live counters | "no arrivals yet" on both ports | `EmptyPayload`, decode rejects, `duplicate_span` counts | **positive signal first**: "412 spans from checkout over HTTP/protobuf, 3s ago" | partial batch: accepted kept, flags shown |
+
+**Retry/reconnect specifics** (named so the implementer isn't guessing):
+- **Span detail fetch fails:** one manual "Retry" button in the panel, no auto-retry. Each click re-fetches; no attempt cap. Panel shows the error text in place of the attribute list until retry succeeds.
+- **SSE dropped:** auto-retry with backoff 1s, 2s, 5s, 10s, then hold at 10s (no giving up — this is a local dev tool, the server is expected to come back). "reconnecting" on the listener line becomes "reconnecting (Nth attempt)" after the first retry. Trace viewing is unaffected; only new-span notifications pause.
 
 ---
 

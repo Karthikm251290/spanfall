@@ -42,6 +42,7 @@ tracescope export <trace-id> [--force] [--redact]
 | Filter box | **None.** Not a disabled one — none. |
 | Data source | `InlineDataSource` (spec 04) |
 | Write | **Temp file, then atomic rename.** Never a partial file on disk. |
+| Filename | `{service}-{trace-id-short}-{UTC-timestamp}.html`, lands in the current working directory. Example: `checkout-4bf92f35-20260913T150000Z.html`. Printed to stdout on success (see T13's stream split), so the redirect case (acceptance #6) has something to redirect. |
 
 ### Why the cap exists, and why the filter box does not
 

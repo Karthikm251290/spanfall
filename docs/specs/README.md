@@ -489,3 +489,207 @@ already built into the storage and query design — see Step 0C. No delta correc
 | 3 | CEO | STOP #8 (job-search timeline vs. 9-10wk build) queued as User Challenge, not auto-decided | User Challenge | N/A — never auto-decided | Both the plan's own priority order and this review's independent read suggest the timeline should gate scope, but only the user has the actual timeline | Silently keeping the 9-10wk plan as-is |
 | 4 | CEO | Eviction-thrashing guard queued as Taste Decision (recommend TODOS.md watch item over v1 scope addition) | Taste | Pragmatic (S effort either way, no clear win) | No load-generating scenario in T2/M1 benchmarks currently exercises this; Receiver's eviction counters make it discoverable, not silent, if it occurs | Adding a v1 scope item without benchmark evidence it's needed |
 | 5 | CEO | Sections 1-6, 8-11: no new findings beyond prior reviews — logged as "examined, nothing new" rather than skipped | Mechanical | N/A (anti-skip rule) | Verified against spec content directly (see Sections 1-11 above) rather than assumed clean | N/A |
+| 6 | Design | Add export filename format (`{service}-{trace-id-short}-{UTC-timestamp}.html`, printed to stdout) to spec 06 T10 | Mechanical | Explicit-over-clever / completeness | Spec 06 referenced a printed path (acceptance #6, T13's stream split) but never named the filename scheme — genuine gap, not a STOP item, cheap and unambiguous to fix | Leaving it to the implementer to invent silently |
+| 7 | Design | Add an inline output example for "1 rule failed" placement to spec 03 | Mechanical | Completeness | States table said the string but never showed where it renders relative to the groups/footer | Leaving formatting to implementer guesswork |
+| 8 | Design | Add trace-list skeleton content spec + race-condition (AbortController) handling to spec 05 D5 | Mechanical | Explicit-over-clever | M1's 3s render budget is gated on this component but the spec described intent only, not the frame's actual content or the concurrent-open case | Leaving as prose-only, unspecified race behavior |
+| 9 | Design | Add retry/reconnect specifics (span-detail retry button, SSE backoff schedule) to spec 05's interaction-states table | Mechanical | Completeness | "Inline retry" and "reconnecting" were named states with no behavior attached | Leaving retry cadence and give-up behavior to implementer discretion |
+| 10 | Design | Reject: independent-subagent Finding 1a (port discovery "completely broken") reframed, not treated as a new gap | Taste | N/A — correction, not a decision | Spec 07 line 39 and spec 05 line 80 already name STOP #2 as surfacing at exactly this spot (startup print). It's deliberately withheld pending the port decision, not an oversight | Auto-fixing STOP #2 (out of scope — it's the one class of item never guessed) |
+| 11 | Design | Reject: independent-subagent Finding 3a (fix-and-verify loop breaks if old trace still resident) | Taste | N/A — correction, not a decision | Spec 03 acceptance test #1 explicitly tests this exact case ("clean, with the old bad traces still resident") and test #2 covers `--all` still reporting them. Already covered, not a gap | Adding a redundant acceptance test |
+| 12 | Design | Reject: independent-subagent Finding 4e (severity left-rule fails greyscale) and the "wire generation counter into UI" suggestion | Taste | N/A — correction, not a decision | Spec 03/05 already state color is reinforcement, heading text carries meaning (survives greyscale by design); spec 03's "what NOT to build" list explicitly rejects generation-checked links inside lint | Reopening settled decisions without new evidence |
+| 13 | Design | Reject: independent-subagent's tab-reorder suggestion (Receiver before Lint) | Taste | Pragmatic | Spec 04 D3's tab order (Traces, Lint, Receiver) is settled; reordering nav is a structural change on a hypothetical confusion, not an observed one | Reordering nav on speculation |
+| 14 | Design | Focus-ring exact styling (border width, inset/outset, scroll-animation) left as executor discretion, not specified further | Taste | Pragmatic | Low risk if unspecified; `docs/specs/README.md`'s existing "Executor discretion" list already covers comparable small implementation choices | Blocking on a cosmetic detail with no clear right answer |
+| 15 | Design | Lint scope-label behavior at 10k+ resident traces: not addressed, no TODOS item added | Taste | Pragmatic | Speculative edge case — v1's own eviction/`--max-memory` behavior (STOP #5) makes it unclear whether traces stay resident at that scale at all; premature to spec | Adding a TODOS watch item with no evidence it's needed |
+
+---
+
+## Design Review (autoplan, 2026-09-13)
+
+**Mode:** SELECTIVE EXPANSION overrides apply — every AskUserQuestion in the loaded skill auto-decides.
+**Scope:** all 8 files in `docs/specs/`, read directly (not from memory) against `docs/designs/tracescope-v1.md`'s token block and the CEO review's findings above.
+
+**Voices:** Codex unavailable, tagged `[codex-unavailable]`. The independent Claude design subagent
+(fresh context, zero prior-phase visibility, dispatched directly by the parent /autoplan session
+since forked workers cannot spawn their own Agent calls) ran and reported 6 numbered findings plus
+a 10-row ambiguous-decisions table. This reviewer read all 8 spec files directly and verified every
+subagent finding against the actual spec text before accepting or rejecting it — 3 of 6 findings did
+not hold up (see Decision Audit Trail rows 10-12 above) once checked against spec content the
+subagent's prompt didn't ask it to cross-reference (STOP list, "what NOT to build" list).
+
+### Step 0 — Design Scope Assessment
+
+**0A. Initial rating: 7/10.** The specs are unusually design-complete for a pre-code plan — full
+interaction-states table (spec 05), a settled token block (spec 04 D8), explicit anti-slop
+discipline (flat rows not cards for lint, spec 03/05), accessibility specifics (spec 04 D12: ARIA
+tree semantics, focus tracking by span index, 44px touch targets). What kept it from 9-10: three
+small implementation-detail gaps (export filename, retry/reconnect cadence, race-condition handling)
+that a careful implementer would hit and have to invent silently. All three are now fixed directly
+in the specs (Decision Audit Trail rows 6, 8, 9) — this review does not re-rate after its own fixes
+since /autoplan auto-decides rather than iterating with the user, but the gaps that justified <10
+are closed.
+
+**0B. DESIGN.md status:** none exists. Already a known, deferred gap — `TODOS.md`'s "A real
+DESIGN.md" item (P3) and the prior settled decision ("~15 CSS variables... not a DESIGN.md") both
+already cover this. Not re-flagged as new; the token block (spec 04 D8) is a real, if minimal,
+design system and is what all 8 specs correctly calibrate against.
+
+**0C. Existing design leverage:** the approved Lint tab wireframe
+(`~/.gstack/projects/spanfall/designs/lint-tab-20260913/wireframes.html`, variant B, recorded in
+`approved.json`) is correctly cited and reused by spec 05 D7 rather than re-derived. No UI pattern
+in the flattened specs invents something a prior review already resolved.
+
+### Step 0.5 — Dual Voices
+
+```
+DESIGN LITMUS / CONSENSUS TABLE:
+═══════════════════════════════════════════════════════════════
+  Dimension                              Primary  Subagent  Consensus
+  ─────────────────────────────────────── ─────── ───────── ─────────
+  1. Information hierarchy sound?          Yes      Partial   DISAGREE→resolved: gaps were
+                                                                real but small, now fixed
+  2. Missing states identified correctly?  Mostly   Yes       CONFIRMED (retry/reconnect gaps)
+  3. User journey / emotional arc sound?   Yes      Partial   DISAGREE: fix-and-verify claim
+                                                                did not hold (spec already covers it)
+  4. Specific UI vs. generic patterns?     Yes      N/A       CONFIRMED (subagent didn't probe
+                                                                AI-slop dimension directly)
+  5. Design-decisions-that-haunt found?    Partial  Yes       CONFIRMED (export filename, real)
+═══════════════════════════════════════════════════════════════
+Codex: N/A (unavailable this session, not a disagreement).
+```
+
+Full independent subagent output is preserved verbatim in the autoplan session transcript (not
+duplicated here — see the Decision Audit Trail for the specific accept/reject calls made against
+each of its 6 numbered findings and 10-row table).
+
+### Passes 1-7
+
+**Pass 1 — Information Architecture: 8/10.** Three peer tabs (Traces/Lint/Receiver), trace list as
+landing surface, trace-as-layer-with-explicit-back (spec 04 D3, state half). Constraint worship
+applied correctly: D4's empty state shows exactly three things (status line, two env vars, listener
+line) — not a generic empty state. Gap: none new. The subagent's tab-reorder suggestion (Receiver
+before Lint) was considered and rejected (audit row 13) — the order is settled and the concern is
+hypothetical, not observed.
+
+**Pass 2 — Interaction State Coverage: 9/10 → 9.5/10 after fixes.** The interaction-states table
+(spec 05) already covers Loading/Empty/Error/Success/Partial across all 5 surfaces — CEO review
+already confirmed no cell is missing. This pass's contribution: two named-but-unspecified states
+(span-detail retry, SSE reconnect) now have concrete behavior (audit row 9). Empty states are
+treated as features throughout — D4's empty state and Lint's "no data yet" (never "0 issues found")
+both correctly distinguish "nothing happened yet" from "checked, found nothing."
+
+**Pass 3 — User Journey & Emotional Arc: 8/10.** D5 (skeleton, no spinner) and D6 (live marker,
+pull-to-apply, "nothing moves under the reader") are a coherent, deliberately calm emotional arc —
+the explicit design principle is that a waterfall reflowing mid-read is worse than a briefly stale
+one. The subagent's claimed break in this arc (fix-and-verify loop fragility) does not hold —
+verified against spec 03's actual acceptance tests, which already test the "old trace still
+resident" case explicitly (audit row 11).
+
+**Pass 4 — AI Slop Risk: 9/10.** Classifier: OPERATE (App UI) for the live viewer, mixed for the
+export (still App UI — view-only, no marketing surface). Zero hard-rejection patterns found: no
+card grids (lint uses flat rows with a left rule specifically to avoid the cataloged "colored
+left-border on cards" slop pattern — spec 05 D7 calls this out by name, unprompted), no gradient
+backgrounds, no generic hero copy (there is no hero), IBM Plex Sans/Mono named explicitly (not
+`system-ui`, the "gave up on typography" tell). Universal rules already followed: CSS variables for
+color (spec 04 D8), tabular numerals on durations/counts, no default font stacks. The 0.5 point held
+back: the design token block doesn't yet theme browser-native surfaces (selection, caret, scrollbar)
+per D8's own stated rule — flagged in D8's prose already, no new finding.
+
+**Pass 5 — Design System Alignment: 7/10.** No DESIGN.md (known, deferred, see 0B). The token block
+(spec 04 D8) is the de facto system and every spec correctly cites it rather than inventing new
+values. Not re-litigated: this was a settled decision today (the prior "Design tokens" active
+decision).
+
+**Pass 6 — Responsive & Accessibility: 8/10.** Spec 04 D12 (ARIA tree semantics, `aria-rowcount` on
+the virtualized total, focus-by-span-index, keyboard model with 2-stage Escape) and spec 06 D11
+(export-only responsive layout, 44px touch targets, full-width detail sheet under 700px) are both
+specific, not aspirational. Live UI is deliberately desktop-only (a conscious, recorded tradeoff, not
+an oversight — `TODOS.md`'s "Responsive layouts for the live UI" item already names the trigger). Gap
+kept out of 9-10: focus-ring exact styling (border width, inset/outset, scroll-into-view animation)
+is unspecified — left as executor discretion (audit row 14), genuinely low-risk.
+
+**Pass 7 — Unresolved Design Decisions.**
+```
+DECISION NEEDED                          | IF DEFERRED, WHAT HAPPENS
+------------------------------------------|---------------------------
+STOP #2 (UI port)                        | D4's empty state and the startup print can't be
+                                          | written concretely — already correctly gated, not
+                                          | new, not resolved here (owner's call).
+STOP #7 (UI framework: none vs React)    | Spec 05 stays fully blocked; D3-D12's .tsx paths
+                                          | stay illustrative only, per spec 05's own banner.
+STOP #6 (how many of 6 lint rules survive)| Spec 03's output examples (2 vs 3 groups) may need
+                                          | revision after T1 measures; not a design gap, an
+                                          | input this pass correctly treats as pending.
+```
+All three were already correctly identified as STOP items by prior passes; this pass adds no new
+unresolved design decision. Zero design-only ambiguities remain undecided after this review's fixes.
+
+### Required Outputs
+
+**"NOT in scope"**: light/dark toggle (system-preference only, settled), a full DESIGN.md (token
+block is the v1 system), vim keybindings + `?` overlay (`TODOS.md` P3), responsive live UI
+(`TODOS.md` P3), any entrance/transition motion beyond the new-span row highlight. All pre-existing,
+none newly deferred by this pass.
+
+**"What already exists"**: the approved Lint tab wireframe (variant B) and its `approved.json`; the
+~15-variable token block (spec 04 D8); the ARIA/keyboard model (spec 04 D12). All correctly reused,
+not reinvented, by every spec that touches UI.
+
+**TODOS.md updates**: none. Every small gap found was cheap and unambiguous enough to fix directly
+in the relevant spec (audit rows 6, 8, 9) rather than deferred — consistent with the plan's own
+stated bias toward fixing over accumulating TODOs for anything under ~1h of spec-writing effort.
+
+### Implementation Tasks
+Synthesized from this review's findings. Each task derives from a specific finding above.
+
+- [ ] **D-T1 (P2, human: ~20min / CC: ~5min)** — export — Implement the filename format now specified in spec 06 T10
+  - Surfaced by: Pass 3 / Pass 7 (design-decisions-that-haunt) — export gave no file confirmation
+  - Files: `src/export/`
+  - Verify: `tracescope export <id>` prints a path matching `{service}-{trace-id-short}-{UTC-timestamp}.html`
+- [ ] **D-T2 (P2, human: ~15min / CC: ~5min)** — lint — Render the "1 rule failed" line per the new spec 03 example
+  - Surfaced by: Pass 2 (missing states) — panic recovery had no rendering example
+  - Files: `src/lint/`
+  - Verify: deliberately panicking rule yields the line in the position spec 03 now shows
+- [ ] **D-T3 (P1, human: ~1h / CC: ~15min)** — ui/waterfall — Implement skeleton content + AbortController race handling per spec 05 D5
+  - Surfaced by: Pass 3 (user journey) — M1's render budget is gated on this component
+  - Files: `ui/src/components/` (exact path pending STOP #7)
+  - Verify: throttled-network 40k-span open shows immediate frame+counts; opening a second trace mid-load shows no mixed rows
+- [ ] **D-T4 (P2, human: ~30min / CC: ~10min)** — ui — Implement span-detail retry button and SSE backoff schedule per spec 05
+  - Surfaced by: Pass 2 (missing states)
+  - Files: `ui/src/components/`
+  - Verify: kill SSE connection, observe "reconnecting (Nth attempt)" backoff sequence; span-detail fetch failure shows a working Retry button
+
+### JSONL artifact
+Written to `~/.gstack/projects/spanfall/tasks-design-review-<TIMESTAMP>.jsonl` (see below).
+
+### Completion Summary
+```
++====================================================================+
+|         DESIGN PLAN REVIEW — COMPLETION SUMMARY (Phase 2)          |
++====================================================================+
+| System Audit         | 8 spec files read directly, verified vs.    |
+|                       | independent subagent's 6 findings          |
+| Step 0               | 7/10 initial, gaps fixed directly           |
+| Pass 1  (Info Arch)  | 8/10 — no new gap                           |
+| Pass 2  (States)     | 9/10 → 9.5/10 — 2 states specified          |
+| Pass 3  (Journey)    | 8/10 — 1 subagent claim rejected (verified) |
+| Pass 4  (AI Slop)    | 9/10 — 0 hard rejections, anti-slop by design|
+| Pass 5  (Design Sys) | 7/10 — DESIGN.md gap known & deferred       |
+| Pass 6  (Responsive) | 8/10 — focus-ring styling left to executor  |
+| Pass 7  (Decisions)  | 0 new unresolved; 3 pre-existing STOP items |
++--------------------------------------------------------------------+
+| NOT in scope         | written (5 items, all pre-existing)         |
+| What already exists  | written                                     |
+| TODOS.md updates     | 0 — all gaps fixed directly instead         |
+| Decisions made       | 4 direct spec fixes (audit rows 6,8,9 x2)   |
+| Decisions deferred   | 0                                           |
+| Consensus            | 2/5 confirmed, 2 disagreements (resolved by |
+|                       | direct verification), 1 not-probed          |
+| Overall design score | 7/10 → 8.2/10 (avg of passes 1-6)           |
++====================================================================+
+```
+
+### Unresolved Decisions (queued for the /autoplan Final Approval Gate)
+
+None from this phase. All findings were either mechanically auto-fixed (small, unambiguous) or
+resolved as taste-decision corrections against the independent subagent (documented in the Decision
+Audit Trail, rows 10-15) — none rose to the level of a User Challenge (no finding here suggested the
+user's stated scope/direction should change).
