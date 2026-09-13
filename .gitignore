@@ -1,1 +1,3 @@
 /target
+.venv-scripts/
+scripts/spike-harness/out/
