@@ -38,16 +38,23 @@ milestone table, which reshifts every line after it. If you add a citation, cite
 ## STOP list — do not invent these
 
 Eight things were genuinely undecided. They were not oversights and were not the executor's to
-resolve. **Four are now resolved** (2026-09-13, at the `/autoplan` Final Approval Gate — see
-`## Final Approval Gate (autoplan, 2026-09-13)` below for the full record). The remaining four
-still apply: **when execution reaches one of those, stop and ask.** Guessing any of them produces
-work that must be redone, because each one propagates into many files.
+resolve. **Six are now resolved** — four at the `/autoplan` Final Approval Gate (see
+`## Final Approval Gate (autoplan, 2026-09-13)` below), plus #1 and #3 resolved via T0 the same day
+(collision check + license, see spec 00). Two remain open (**#6**, pending T1; **#7**, pending M1):
+**when execution reaches one of those, stop and ask.** Guessing either produces work that must be
+redone, because each propagates into many files.
+
+Note: `tracescope` still appears throughout these specs' prose as the placeholder name it was
+written with. T0's own scope was narrow — Cargo.toml, LICENSE, and "no *source* file hardcodes it"
+(now true: `src/main.rs` derives it via `env!("CARGO_BIN_NAME")`) — not a find-and-replace across
+every doc. Treat every `tracescope` in prose below as `spanfall`; rewriting the prose itself is
+optional polish, not a blocker.
 
 | # | Undecided | Referenced by | What breaks if you guess |
 |---|---|---|---|
-| 1 | **OPEN.** The product name. `tracescope` is a placeholder. | crate name, binary name, env-var prefix, repo URL, benchmark repo URL, every doc | T0. The spike ships a *public* repo, so the name is day-0 blocking. A guessed name gets baked into a published URL. |
+| 1 | **RESOLVED → `spanfall`** (2026-09-13). Collision-checked clean on crates.io, npm, and GitHub repo names. `Cargo.toml` is the single source; binary name derives via `env!("CARGO_BIN_NAME")`. Prose in these specs still says `tracescope` as a placeholder — not rewritten (see note below). | crate name, binary name, env-var prefix, repo URL, benchmark repo URL, every doc | — |
 | 2 | **RESOLVED → `:5317`** (2026-09-13). Was: the UI port, never named. | empty state, terminal output, `--open`, README, all screenshots | — |
-| 3 | **OPEN.** License. Apache-2.0 is the assumption (patent grant, matches the OTel ecosystem), not a decision. `docs/prd.md` §Open Questions → license row. | `Cargo.toml`, `LICENSE`, README | Relicensing after a public commit needs every contributor's consent. |
+| 3 | **RESOLVED → Apache-2.0** (2026-09-13). Set in `Cargo.toml`'s `license` field and `LICENSE`. | `Cargo.toml`, `LICENSE`, README | — |
 | 4 | **RESOLVED → last-write-wins** (2026-09-13). Was: dedupe semantics on duplicate `(trace_id, span_id)`. | T4, `src/store/` | — |
 | 5 | **RESOLVED → 1 GiB default, provisional** (2026-09-13). Was: `--max-memory` default. | retention, eviction, `docs/prd.md` §Open Questions → `--max-memory` row | Re-pinned after M1 measures actual bytes/span. Bytes/span varies ~5x with attribute density, which is why the cap is in bytes and not spans. |
 | 6 | **OPEN.** How many lint rules survive. Six are specified; the outside voice argued "six rules is probably three" (rule 2 may duplicate the Receiver panel, rule 6 is a rotting table that false-positives on pinned older SDKs). | T1 → spec 03 | T1 can delete rules and move thresholds. Spec 03 is written so a cut rule is a file deletion plus one registry line, never a refactor. Do not build the engine before T1 runs. |

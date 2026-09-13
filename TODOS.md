@@ -14,18 +14,6 @@
 **Priority:** P3
 **Depends on:** A real user request for cross-trace search. Don't build speculatively.
 
-### Name the project before the first commit
-
-**What:** Decide the real name. The directory is `spanfall`, the PRD calls `tracescope` a placeholder.
-
-**Why:** It is now genuinely blocking rather than cosmetic: it goes into the crate name, the binary name, the config env-var prefix, and the repo URL. Renaming after the first public commit costs a broken install path for anyone who found it early.
-
-**Context:** PRD's "Before Finalizing" checklist already requires checking crates.io, GitHub, and npm for collisions. Do that check and pick, same sitting.
-
-**Effort:** S
-**Priority:** P0
-**Depends on:** None.
-
 ## Product (deferred from CEO review 2026-09-13)
 
 Full reasoning and the accepted-vs-deferred table live in
@@ -288,6 +276,12 @@ visual surface, most likely the launch landing page if the spike clears.
 **Depends on:** nothing. Better *after* a real screen exists than before.
 
 ## Completed
+
+### ~~Name the project before the first commit~~ — closed 2026-09-13, T0
+
+Was: decide the real name (crate, binary, env-var prefix, repo URL) and license before the day-0 spike publishes a public repo.
+
+Resolved: **spanfall**, collision-checked clean on crates.io (404), npm (not found), and GitHub repo names (0 matches). License: **Apache-2.0**. `Cargo.toml` created as the single source of truth; `src/main.rs` derives the binary name via `env!("CARGO_BIN_NAME")` rather than hardcoding it. `LICENSE` added.
 
 ### ~~Persistence schema versioning~~ — closed 2026-09-13, resolved by design
 
