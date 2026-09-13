@@ -224,5 +224,6 @@ is funded only by a THESIS HOLDS result, and is specified in spec 02's pivot pla
 
 ## STOP items live here
 
-**#1 name** and **#3 license** are resolved by T0 and by nobody else. **#6 rule set** is resolved by
-T1's output. Do not proceed into spec 03 with the six rules as written if T1 cut any of them.
+**#1 name**, **#3 license**, and **#6 rule set** — all resolved 2026-09-13. Name: `spanfall`,
+collision-checked clean. License: Apache-2.0. Rule set: five rules survive (see spec 03's "T1's
+measurement" section and `scripts/spike-harness/t1-findings-20260913.md`).

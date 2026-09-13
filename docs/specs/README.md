@@ -38,11 +38,11 @@ milestone table, which reshifts every line after it. If you add a citation, cite
 ## STOP list — do not invent these
 
 Eight things were genuinely undecided. They were not oversights and were not the executor's to
-resolve. **Six are now resolved** — four at the `/autoplan` Final Approval Gate (see
-`## Final Approval Gate (autoplan, 2026-09-13)` below), plus #1 and #3 resolved via T0 the same day
-(collision check + license, see spec 00). Two remain open (**#6**, pending T1; **#7**, pending M1):
-**when execution reaches one of those, stop and ask.** Guessing either produces work that must be
-redone, because each propagates into many files.
+resolve. **Seven are now resolved** (2026-09-13) — four at the `/autoplan` Final Approval Gate (see
+`## Final Approval Gate (autoplan, 2026-09-13)` below), #1 and #3 via T0 (collision check +
+license), and #6 via T1 (measured against real data — see spec 00 and spec 03). Only **#7** remains
+open, pending M1: **when execution reaches it, stop and ask.** Guessing it produces work that must
+be redone, because it propagates into every file in spec 05.
 
 Note: `tracescope` still appears throughout these specs' prose as the placeholder name it was
 written with. T0's own scope was narrow — Cargo.toml, LICENSE, and "no *source* file hardcodes it"
@@ -57,7 +57,7 @@ optional polish, not a blocker.
 | 3 | **RESOLVED → Apache-2.0** (2026-09-13). Set in `Cargo.toml`'s `license` field and `LICENSE`. | `Cargo.toml`, `LICENSE`, README | — |
 | 4 | **RESOLVED → last-write-wins** (2026-09-13). Was: dedupe semantics on duplicate `(trace_id, span_id)`. | T4, `src/store/` | — |
 | 5 | **RESOLVED → 1 GiB default, provisional** (2026-09-13). Was: `--max-memory` default. | retention, eviction, `docs/prd.md` §Open Questions → `--max-memory` row | Re-pinned after M1 measures actual bytes/span. Bytes/span varies ~5x with attribute density, which is why the cap is in bytes and not spans. |
-| 6 | **OPEN.** How many lint rules survive. Six are specified; the outside voice argued "six rules is probably three" (rule 2 may duplicate the Receiver panel, rule 6 is a rotting table that false-positives on pinned older SDKs). | T1 → spec 03 | T1 can delete rules and move thresholds. Spec 03 is written so a cut rule is a file deletion plus one registry line, never a refactor. Do not build the engine before T1 runs. |
+| 6 | **RESOLVED → five rules** (2026-09-13). Was: how many of the six specified rules survive. T1 measured against 11,289 real spans: rule 6 cut (fired on ~100% of HTTP spans, even the OTel project's own demo app hasn't migrated off pre-1.23 semconv), rule 1's ratio replaced with an absolute count (≥200 distinct — the ratio never fired at any real scale), rule 5 gained a streaming-RPC exclusion (fired 24/24 times on the same false positive). Rules 2/3/4 confirmed unchanged. | T1 → spec 03 | — |
 | 7 | **OPEN.** UI framework: none (Vite + TS) vs React. Assumption is none — "40k virtualized rows is where a reconciler becomes the adversary" (`docs/prd.md` §Open Questions → UI framework row). | spec 05 entirely | Decided week 3, *after* M1, empirically. Note the contradiction this creates: D3–D12 name `.tsx` paths, which presupposes React. Those paths are illustrative, not decided. |
 | 8 | **RESOLVED (scope question) → keep the full 9-10wk v1** (2026-09-13); the underlying job-search-timeline value is still `[PLACEHOLDER]` in the PRD but no longer gates scope. | the whole plan's shape | — |
 

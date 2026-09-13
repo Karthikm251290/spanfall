@@ -14,6 +14,26 @@
 **Priority:** P3
 **Depends on:** A real user request for cross-trace search. Don't build speculatively.
 
+### Watch item: narrowed deprecated-semconv rule (v1.1 candidate)
+
+**What:** A scaled-back version of the lint rule cut in v1 (STOP #6) — flag deprecated OTel
+semantic-convention attribute keys, but excluding `http.method`, `http.status_code`, and
+`http.url`, the three keys responsible for ~75% of hits when T1 tested the full table.
+
+**Why:** T1 (2026-09-13, `scripts/spike-harness/t1-findings-20260913.md`) found the full rule fires
+on ~100% of HTTP spans in the OTel demo app — even the ecosystem's own reference app hasn't
+migrated off pre-1.23 HTTP semconv names. Excluding those three high-volume, still-near-universal
+keys and keeping only genuinely rare deprecated keys might recover a useful, low-noise version of
+the rule.
+
+**Context:** Not built now — v1 cuts the rule entirely rather than shipping an unvalidated narrower
+version. Trigger to build: worth a second T1-style measurement pass against real data before
+shipping, not a guess at which keys are "rare enough."
+
+**Effort:** XS (human ~1h / CC ~15min), plus a validation pass
+**Priority:** P3
+**Depends on:** A second measurement pass, ideally against a project that isn't the OTel reference demo.
+
 ## Product (deferred from CEO review 2026-09-13)
 
 Full reasoning and the accepted-vs-deferred table live in

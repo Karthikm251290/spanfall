@@ -100,40 +100,58 @@ per-trace rules and **names the skipped ones, with the command that runs them.**
 
 ---
 
-## The six rules
+## The five rules
 
-**Thresholds below are reasoned, not measured. T1 replaces them with measured values and may delete
-rules outright** (STOP #6). Implement each rule as an independent unit in a registry array, so
-cutting one is a file deletion plus one line — never a refactor.
+**STOP #6 resolved 2026-09-13**, via T1's measurement against 11,289 real spans from the OTel demo
+app (`scripts/spike-harness/t1-findings-20260913.md`). Six were specified; one is cut, one predicate
+is fixed, four are confirmed as originally written. Implement each rule as an independent unit in a
+registry array, so cutting or changing one is a file deletion or a predicate edit — never a
+refactor.
 
 | # | Rule | Predicate | Scope | Tier |
 |---|---|---|---|---|
-| 1 | High-cardinality span names | distinct span names **> 50** AND distinct **> 30% of total spans**. Reports the top 5 offenders with example names. | **Cross-trace** | WARN |
+| 1 | High-cardinality span names | distinct span names **≥ 200**. Reports the top 5 offenders with example names. | **Cross-trace** | WARN |
 | 2 | Missing `service.name` | Any span whose resource lacks it. Reports count and percent; **names the endpoint and protocol it arrived on.** | Per-trace | ERROR |
 | 3 | Broken context propagation | Orphan spans grouped by (child service, unresolved parent span id). Fires when a service has **>0 orphans** whose parent was never seen inside the retention window AND the trace contains spans from **2+ services**. | Per-trace | ERROR |
 | 4 | Attribute type conflict | Same attribute key observed with **2+ different value types**. Reports the key, both types, and counts. | **Cross-trace** | WARN |
-| 5 | Long-duration leaf span | Zero children AND duration **> 1s** AND **> 50% of its parent's duration**. Suggests missing instrumentation inside it. | Per-trace | INFO |
-| 6 | Deprecated semantic conventions | Attribute key matches a deprecation table **pinned to a stated OTel semconv version.** Pin it in the repo; bump deliberately. | Per-trace | INFO |
+| 5 | Long-duration leaf span | Zero children AND duration **> 1s** AND **> 50% of its parent's duration** AND the span is **not** a streaming/long-poll RPC (no `rpc.*`/`messaging.*` attribute indicating a server-streaming or subscription call). Suggests missing instrumentation inside it. | Per-trace | INFO |
 
 Rule 3's predicate is **not evaluable at append time**, because out-of-order spans are normal in
 OTLP. It is evaluable on request, which is one more reason the on-request model is the right one.
 
-Rule 1 can cite a specification MUST rather than a heuristic — "Instrumentation MUST NOT default to
-using URI path as a `{target}`" — and its warning text should name the real downstream harm:
-**metric generators turn `span.name` into a label, so high cardinality causes a metrics spike.**
-That is what makes the finding actionable instead of merely true.
+Rule 1's specification-MUST citation ("Instrumentation MUST NOT default to using URI path as a
+`{target}`") and its downstream-harm framing (**metric generators turn `span.name` into a label, so
+high cardinality causes a metrics spike**) still apply — only the predicate's shape changed.
 
-### Two things for T1 to check, flagged rather than decided
+### T1's measurement (2026-09-13) — what changed and why
 
-1. **Rules 2 and 6 were challenged by name.** Rule 2 may duplicate what the Receiver panel already
-   shows; rule 6 is a maintenance-bearing table that false-positives on a project pinned to an older
-   SDK. The recorded position is "six rules is probably three."
-2. **Rule 1's ratio threshold may be unreachable at `--all` scope.** Distinct span names grow
-   sub-linearly as traces accumulate while total spans grow linearly, so `distinct / total` *falls*
-   as more traces arrive. A 30%-of-total threshold is much harder to cross over 214 traces than over
-   one — and rule 1 is tagged cross-trace, so `--all` is the **only** scope it ever runs at.
-   **Measure this in T1 before implementing the threshold as written.** A count-based or per-service
-   predicate may be the correct shape. Do not silently change it here; report it.
+Full write-up: `scripts/spike-harness/t1-findings-20260913.md`.
+
+1. **Rule 1 — ratio replaced with an absolute count.** As specified (>50 distinct AND >30% of
+   total), the predicate never fired on real data: the demo app's 17 services produced 87 distinct
+   span names across 11,289 spans — a 0.77% ratio, nowhere near the 30% bar. Distinct names grow
+   sub-linearly (bounded operation vocabulary per service) while total spans grow with traffic,
+   exactly as flagged before T1 ran. Fixed to an absolute **≥200** — clearly above this app's clean
+   baseline of 87, though the exact number still wants a genuinely bad project to calibrate a true
+   positive, not just a clean negative.
+2. **Rule 5 — added a streaming-RPC exclusion.** As specified, it fired 24 times, and all 24 were
+   the identical false-positive shape: a long-lived gRPC streaming subscription
+   (`flagd.evaluation.v1.Service/EventStream`), which is supposed to run long — that is not a
+   missing-instrumentation bug. Excluded via a streaming/long-poll signal on the span's attributes.
+3. **Rule 6 — cut for v1.** As specified, it fired on ~12,025 of 11,289+ spans (a span can carry
+   more than one deprecated key): the **OpenTelemetry project's own reference demo app** is still
+   instrumented with pre-1.23 HTTP semconv names (`http.method`, `http.status_code`, `http.url`,
+   etc.). If the ecosystem's flagship example hasn't migrated, this rule would flag the majority of
+   real-world HTTP-instrumented services on their first run — the "fires on nearly everything, and
+   noise is worse than silence" case T1 exists to catch. A narrower version (excluding the three
+   keys responsible for ~75% of hits, keeping only genuinely rare deprecated keys) is recorded in
+   `TODOS.md` as a possible v1.1 revisit, not built now.
+4. **Rules 2, 3, 4 — confirmed.** Rules 3 and 4 fired with real, specific, actionable findings
+   (cross-service orphan spans; attribute type drift across the demo's polyglot SDKs) and ship
+   unchanged. Rule 2 fired zero times — expected on a well-instrumented reference app, which can
+   only produce a true negative for a rule about *missing* instrumentation, not disprove it. Kept as
+   specified (ERROR tier, cheap, catches a real and common first-instrumentation mistake this
+   dataset simply didn't have).
 
 ---
 
@@ -181,9 +199,9 @@ colour-blindness. Colour is reinforcement, never the signal.
 |---|---|---|
 | ERROR | `BREAKS ANALYSIS` | 3, 2 |
 | WARN | `COSTS YOU MONEY DOWNSTREAM` | 1, 4 |
-| INFO | `ADVISORY` | 5, 6 |
+| INFO | `ADVISORY` | 5 |
 
-Without tiers, six simultaneous findings read as flat noise and none get fixed.
+Without tiers, simultaneous findings read as flat noise and none get fixed.
 
 ---
 
@@ -206,7 +224,6 @@ BREAKS ANALYSIS
 
 ADVISORY
 | Long-duration leaf spans over 1s with no children                   12
-| Deprecated semantic conventions (semconv 1.27)                       6
 
 2 rules need more than one trace (span-name cardinality, attribute type
 conflict) — run `tracescope lint --all`, 214 traces resident
@@ -214,7 +231,7 @@ conflict) — run `tracescope lint --all`, 214 traces resident
 
 ## Output — `--all` scope
 
-Three groups, all six rules, and both the scope line and the footer change. **This is the only view
+Three groups, all five rules, and both the scope line and the footer change. **This is the only view
 in which the cross-trace rows exist.** (The design doc elides this block with `...`; it is expanded
 here because implementation follows the spec, not the mockup.)
 
@@ -236,14 +253,13 @@ COSTS YOU MONEY DOWNSTREAM
 
 ADVISORY
 | Long-duration leaf spans over 1s with no children                    214
-| Deprecated semantic conventions (semconv 1.27)                        61
 
-all 6 rules evaluated · examined 214 traces
+all 5 rules evaluated · examined 214 traces
 ```
 
-Note the cardinality numbers **satisfy rule 1's predicate as written**: 13,402 distinct is >50 and
-is 33.4% of 40,118, clearing the 30% ratio. Illustrative numbers that do not satisfy their own
-predicate are how a mockup teaches the wrong behaviour — see the T1 flag above.
+Note the cardinality number **satisfies rule 1's predicate**: 13,402 distinct is ≥200. Illustrative
+numbers that do not satisfy their own predicate are how a mockup teaches the wrong behaviour — see
+T1's measurement above.
 
 ## Terminal output
 
@@ -259,7 +275,7 @@ arrive, then never again:
 
 ```
 receiving from checkout on :4318 — 412 spans
-  run `tracescope lint` to check the instrumentation (6 rules)
+  run `tracescope lint` to check the instrumentation (5 rules)
 ```
 
 **Nothing is printed on a timer.** An earlier spec said "on startup and then throttled every ~5s
@@ -336,5 +352,6 @@ three tiers.
 
 ## STOP items live here
 
-**#6** — how many rules survive T1, and whether rule 1's threshold shape changes. Do not implement
-the six rules as written if T1 cut any of them or moved a threshold.
+**#6 — resolved 2026-09-13.** Five rules survive (rule 6 cut, rule 1's threshold changed to an
+absolute count, rule 5 gained a streaming-RPC exclusion). See "T1's measurement" above and
+`scripts/spike-harness/t1-findings-20260913.md`.
