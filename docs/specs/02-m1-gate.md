@@ -112,7 +112,7 @@ M1 is not only a gate; three later decisions wait on its numbers.
 
 | Output | Unblocks |
 |---|---|
-| Measured **bytes/span** | STOP #5 — the `--max-memory` default (512 MiB / 1 GiB / 2 GiB) |
+| Measured **bytes/span** | STOP #5 — resolved to a provisional **1 GiB** default (2026-09-13); this measurement re-pins it with real data |
 | Whether a reconciler is affordable at 40k rows | STOP #7 — the UI framework, and therefore all of spec 05 |
 | Whether the designed baseline meets the budgets | Whether canvas / packed-binary tuning hours are funded at all |
 
@@ -144,7 +144,7 @@ Cite the test plan's "Critical Paths" → M1 GO/NO-GO gate rows and the method-g
 | 3 | Both synthetic **and** OTel demo app inputs used. |
 | 4 | Incumbent numbers: DevTools, 10 runs, median and p90, spread reported. |
 | 5 | Machine specs published alongside the numbers. |
-| 6 | bytes/span reported, so STOP #5 can be closed. |
+| 6 | bytes/span reported, so STOP #5's provisional 1 GiB default can be re-pinned with real data. |
 | 7 | A framework recommendation reported with the evidence behind it, so STOP #7 can be closed. |
 | 8 | If any target was missed, the corresponding pivot from the table above was chosen — not a new one invented at the gate. |
 

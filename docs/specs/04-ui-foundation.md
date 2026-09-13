@@ -186,5 +186,6 @@ transitions beyond the row highlight on new spans.
 
 ## STOP items
 
-None block this spec. **#2** (the UI port) surfaces in the empty state that spec 05 renders, and
-**#7** (framework) gates spec 05 — neither gates anything here.
+None block this spec. **#2** (the UI port, resolved to `:5317` 2026-09-13) surfaces in the empty
+state that spec 05 renders, and **#7** (framework, still open — decided week 3 post-M1) gates spec
+05 — neither gates anything here.

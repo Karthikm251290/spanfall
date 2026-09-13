@@ -106,7 +106,7 @@ Indicators are weighted by the stated priority order. A public benchmark result 
 | External contributors (merged PR) | 0 | ≥3 | 6 months post-launch |
 | Unprompted mention in an OTel community channel, newsletter, or awesome-list | 0 | ≥1 | 6 months post-launch |
 | Benchmark claims survive public scrutiny (HN/Reddit) without being credibly debunked | n/a | No successful methodology challenge | At launch + 2 weeks |
-| Repo cited in a job conversation or interview | 0 | ≥1 | [PLACEHOLDER — tied to job-search timeline] |
+| Repo cited in a job conversation or interview | 0 | ≥1 | [PLACEHOLDER — timeline still unset; owner confirmed 2026-09-13 (`/autoplan` gate, STOP #8) it does not gate v1 scope regardless] |
 
 ### Leading Indicators (pre-launch signals)
 

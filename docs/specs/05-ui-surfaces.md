@@ -77,8 +77,8 @@ Contents: **teach the next action.**
 The alternative — stating the bare fact that there are no traces — was considered and **rejected**,
 because it does not help the most common first-run failure, which is a misconfigured exporter.
 
-> **STOP #2 — the UI port.** This screen prints the endpoint a developer copies. The UI port is
-> named in no document. Ask before writing the string.
+> **STOP #2 — resolved: `:5317`.** Decided 2026-09-13 at the `/autoplan` gate. This screen prints
+> `http://localhost:5317`.
 
 **Per-language SDK snippets are out of scope.** Two env vars cover the common case; four SDK
 snippets are four things to keep correct in a tool whose whole claim is that it needs no

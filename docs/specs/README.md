@@ -37,20 +37,22 @@ milestone table, which reshifts every line after it. If you add a citation, cite
 
 ## STOP list — do not invent these
 
-Eight things are genuinely undecided. They are not oversights and they are not yours to resolve.
-**When execution reaches one, stop and ask.** Guessing any of them produces work that must be
-redone, because each one propagates into many files.
+Eight things were genuinely undecided. They were not oversights and were not the executor's to
+resolve. **Four are now resolved** (2026-09-13, at the `/autoplan` Final Approval Gate — see
+`## Final Approval Gate (autoplan, 2026-09-13)` below for the full record). The remaining four
+still apply: **when execution reaches one of those, stop and ask.** Guessing any of them produces
+work that must be redone, because each one propagates into many files.
 
 | # | Undecided | Referenced by | What breaks if you guess |
 |---|---|---|---|
-| 1 | **The product name.** `tracescope` is a placeholder. | crate name, binary name, env-var prefix, repo URL, benchmark repo URL, every doc | T0. The spike ships a *public* repo, so the name is day-0 blocking. A guessed name gets baked into a published URL. |
-| 2 | **The UI port.** `docs/prd.md` §How It Works says the web UI is served on "a third port" and never names it. | empty state, terminal output, `--open`, README, all screenshots | A guessed port appears in the first-run instructions users copy. 4317/4318 are fixed by OTLP; the third is free and unchosen. |
-| 3 | **License.** Apache-2.0 is the assumption (patent grant, matches the OTel ecosystem), not a decision. `docs/prd.md` §Open Questions → license row. | `Cargo.toml`, `LICENSE`, README | Relicensing after a public commit needs every contributor's consent. |
-| 4 | **Dedupe semantics on duplicate `(trace_id, span_id)`:** last-write-wins vs drop-on-duplicate. | T4, `src/store/` | OTLP permits a legitimate re-export of the same span id with *updated* fields. The two choices differ in observable output. Open sub-question recorded in T4, never resolved. |
-| 5 | **`--max-memory` default:** 512 MiB / 1 GiB / 2 GiB. Assumption is 1 GiB. | retention, eviction, `docs/prd.md` §Open Questions → `--max-memory` row | Pins after M1 measures actual bytes/span. Bytes/span varies ~5x with attribute density, which is why the cap is in bytes and not spans. |
-| 6 | **How many lint rules survive.** Six are specified; the outside voice argued "six rules is probably three" (rule 2 may duplicate the Receiver panel, rule 6 is a rotting table that false-positives on pinned older SDKs). | T1 → spec 03 | T1 can delete rules and move thresholds. Spec 03 is written so a cut rule is a file deletion plus one registry line, never a refactor. Do not build the engine before T1 runs. |
-| 7 | **UI framework:** none (Vite + TS) vs React. Assumption is none — "40k virtualized rows is where a reconciler becomes the adversary" (`docs/prd.md` §Open Questions → UI framework row). | spec 05 entirely | Decided week 3, *after* M1, empirically. Note the contradiction this creates: D3–D12 name `.tsx` paths, which presupposes React. Those paths are illustrative, not decided. |
-| 8 | **Job-search timeline.** `[PLACEHOLDER]` in the PRD's Success Criteria. | the whole plan's shape | The stated priority order (credibility → usage → learning) rests on it. The CEO review's position: if interviews are live now, the 3–4 week diagnostics wedge likely beats the 9–10 week build *regardless of the spike result*, because a credibility asset landing after the offer is worth much less. |
+| 1 | **OPEN.** The product name. `tracescope` is a placeholder. | crate name, binary name, env-var prefix, repo URL, benchmark repo URL, every doc | T0. The spike ships a *public* repo, so the name is day-0 blocking. A guessed name gets baked into a published URL. |
+| 2 | **RESOLVED → `:5317`** (2026-09-13). Was: the UI port, never named. | empty state, terminal output, `--open`, README, all screenshots | — |
+| 3 | **OPEN.** License. Apache-2.0 is the assumption (patent grant, matches the OTel ecosystem), not a decision. `docs/prd.md` §Open Questions → license row. | `Cargo.toml`, `LICENSE`, README | Relicensing after a public commit needs every contributor's consent. |
+| 4 | **RESOLVED → last-write-wins** (2026-09-13). Was: dedupe semantics on duplicate `(trace_id, span_id)`. | T4, `src/store/` | — |
+| 5 | **RESOLVED → 1 GiB default, provisional** (2026-09-13). Was: `--max-memory` default. | retention, eviction, `docs/prd.md` §Open Questions → `--max-memory` row | Re-pinned after M1 measures actual bytes/span. Bytes/span varies ~5x with attribute density, which is why the cap is in bytes and not spans. |
+| 6 | **OPEN.** How many lint rules survive. Six are specified; the outside voice argued "six rules is probably three" (rule 2 may duplicate the Receiver panel, rule 6 is a rotting table that false-positives on pinned older SDKs). | T1 → spec 03 | T1 can delete rules and move thresholds. Spec 03 is written so a cut rule is a file deletion plus one registry line, never a refactor. Do not build the engine before T1 runs. |
+| 7 | **OPEN.** UI framework: none (Vite + TS) vs React. Assumption is none — "40k virtualized rows is where a reconciler becomes the adversary" (`docs/prd.md` §Open Questions → UI framework row). | spec 05 entirely | Decided week 3, *after* M1, empirically. Note the contradiction this creates: D3–D12 name `.tsx` paths, which presupposes React. Those paths are illustrative, not decided. |
+| 8 | **RESOLVED (scope question) → keep the full 9-10wk v1** (2026-09-13); the underlying job-search-timeline value is still `[PLACEHOLDER]` in the PRD but no longer gates scope. | the whole plan's shape | — |
 
 ### Executor discretion — decide these yourself, record what you chose
 
@@ -1451,3 +1453,33 @@ Synthesized from this phase's findings. Each task derives from a specific findin
   - Files: implementation test suite (spec 06 acceptance #12, this phase)
   - Verify: trigger eviction mid-export, assert full file or `TraceEvicted`, never partial
 _No new tasks from Section 4 (Performance) — no findings this phase._
+
+---
+
+## Final Approval Gate (autoplan, 2026-09-13)
+
+Four items required the human's judgment: 1 User Challenge (STOP #8) and 3 STOP-list Taste
+Decisions (STOP #2, #4, #5) that no review voice was allowed to auto-decide. Presented to the
+owner; resolved as follows.
+
+| Item | What was asked | Decision | Rationale given |
+|---|---|---|---|
+| **USER CHALLENGE — STOP #8** | Keep the 9-10wk full v1, or switch to the 3-4wk diagnostics wedge, given the unresolved job-search timeline? | **Keep the full 9-10wk v1 as planned.** No change to milestone sequencing. | Owner's call — original direction stands per autoplan's rule that the user's stated direction is the default unless they change it. |
+| **STOP #2 — UI port** | `:5317` (both DX voices' independent recommendation) or a different port? | **`:5317`.** | Matches both independent review voices; groups visually with OTLP's fixed 4317/4318; low collision risk with other local dev servers. |
+| **STOP #5 — `--max-memory` default** | What value ships when the flag is omitted? (Always overridable via `--max-memory <n>` either way.) | **1 GiB**, provisional. | Matches the spec's own stated assumption and both independent DX voices; re-pinned after M1 measures real bytes/span (spec 02 acceptance #6). |
+| **STOP #4 — dedupe semantics** | Last-write-wins or drop-on-duplicate for a duplicate `(trace_id, span_id)`? | **Last-write-wins.** | Matches how OTel SDKs commonly patch/retry spans (correcting end-time or adding attributes on resend); judged lower-risk than silently discarding a legitimate correction. |
+
+**Spec files updated to reflect these decisions:** `01-m0-store-ingest.md` (§T4, §5 Retention,
+STOP-items footer), `05-ui-surfaces.md` (D4 empty state), `07-cli-demo-docs.md` (CLI flag table,
+STOP-items footer, startup print added), `04-ui-foundation.md` (STOP-items note), `02-m1-gate.md`
+(bytes/span unblock table, acceptance #6), this file's STOP list (top of file), `docs/prd.md`
+(Success Criteria placeholder annotated, not filled in — no date was given).
+
+**Still open, unchanged by this gate:** STOP #1 (product name), STOP #3 (license), STOP #6 (lint
+rule count, pending T1), STOP #7 (UI framework, pending M1). None of these were presented at this
+gate — none rose to a User Challenge or a Taste Decision needing resolution now; each has its own
+stated trigger to resolve (T0, before-first-commit; T1's measurement; M1's measurement) elsewhere
+in this document.
+
+**Status: APPROVED.** Proceed to implementation per the execution order above (T0 → T1/T3→T2 →
+spec 01 → specs 03/04/06/07 in parallel → spec 05).

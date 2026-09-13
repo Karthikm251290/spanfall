@@ -23,7 +23,7 @@ Collected here because it is scattered across five specs and nowhere stated whol
 | `tracescope export <id> [--force] [--redact]` | Single-file HTML export | 06 |
 | `--demo` | Curated fake trace set | this spec |
 | `--dump` | Prove M0: spans, flags, rejects, counters | 01 |
-| `--max-memory <n>` | Retention cap, in bytes **(STOP #5 — no agreed default)** | 01 |
+| `--max-memory <n>` | Retention cap, in bytes (default **1 GiB**, STOP #5 resolved 2026-09-13; always overridable) | 01 |
 | `--ingest-timeout <t>` | How long a blocked send waits before returning a retryable 429 / `RESOURCE_EXHAUSTED` | 01 |
 
 **Not in v1**, deferred in `TODOS.md`: `--open`, copy-trace-id / copy-as-curl, `--host` or any
@@ -35,8 +35,13 @@ non-localhost bind, CI `assert` mode, watch mode.
 > (`env!("CARGO_BIN_NAME")` or clap's automatic name) so T0's resolution is a one-line change, not a
 > repo-wide replace. **Help text and error messages must not hardcode it either.**
 
-> **STOP #2.** The UI port is named in no document. It surfaces here (what the process prints on
-> startup), in D4's empty state, and in the README.
+> **STOP #2 — resolved: `:5317`.** Decided 2026-09-13 at the `/autoplan` gate. Startup print (T16,
+> plain `tracescope` invocation, no args):
+> ```
+> Listening on http://localhost:5317
+> OTLP gRPC: 4317   OTLP HTTP: 4318
+> ```
+> Applies here, in D4's empty state, and in the README.
 
 ---
 
@@ -175,5 +180,8 @@ assert mode. Filling in the job-search timeline placeholder: that is the owner's
 
 ## STOP items live here
 
-**#1** (name, in every help string), **#2** (UI port, printed on startup), **#5** (`--max-memory`
-default, a flag this spec declares), **#8** (the job-search placeholder T14 must not fill in).
+**#1** (name, in every help string, still open), **#2** (UI port, resolved to `:5317`, printed on
+startup), **#5** (`--max-memory` default, resolved to 1 GiB, a flag this spec declares), **#8**
+(scope question resolved 2026-09-13 — keep the full v1 build, do not switch to the diagnostics
+wedge; the underlying job-search-timeline placeholder in `docs/prd.md` remains unfilled since no
+date was given, but it no longer gates scope).

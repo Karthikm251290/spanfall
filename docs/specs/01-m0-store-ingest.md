@@ -1,7 +1,7 @@
 # Spec 01 — M0: ingest, store, receiver data
 
-**Tasks:** T4 (dedupe) — **blocked pending STOP #4** (dedupe semantics undecided; do not estimate
-this as ready work until it is resolved — see the STOP box under §T4 below). The rest of this spec
+**Tasks:** T4 (dedupe) — **unblocked.** STOP #4 resolved 2026-09-13 (autoplan gate): last-write-wins
+(see §T4 below). The rest of this spec
 has **no task number** — its source is architecture
 prose in `docs/prd.md` §Architecture (v1), decided 2026-09-13 and stress-tested by an Opus pass, two
 adversarial rounds and an outside-voice pass. It was never re-opened.
@@ -117,27 +117,30 @@ no second mechanism.
 
 ### T4 — dedupe on `(trace_id, span_id)`
 
-**Status: BLOCKED, not ready to build.** The effort estimate below assumes the dedupe semantics are
-settled; they are not (STOP #4, immediately below). Do not schedule or start T4 until STOP #4
-resolves — implementing either choice on a guess produces work that has to be redone once the real
-answer lands, since the two choices are observably different, not an internal detail.
+**Status: unblocked.** STOP #4 resolved 2026-09-13 (autoplan gate, taste decision): **last-write-wins.**
 
-**Effort:** ~3h human / ~30min CC (unblocked; add the decision time for STOP #4 on top).
+**Effort:** ~3h human / ~30min CC.
 
 Dedupe at insert, riding the `span_id` probe that parent resolution already performs — so this
-costs no additional hash lookup.
+costs no additional hash lookup. On a duplicate `(trace_id, span_id)`, the incoming span's fields
+**overwrite** the stored one in place (last-write-wins) rather than being discarded, since OTLP
+permits a legitimate re-export of the same span id with updated fields (e.g. an SDK finalizing an
+end-time after an amortized flush), and dropping it would silently lose that correction.
 
 Why it exists: a 429 makes the exporter re-send the batch (`docs/prd.md` §Architecture (v1) → Backpressure), and without dedupe
 the waterfall shows every retried span **twice**. This was one of two critical gaps the engineering
 review found, and it is fixed in the store so every consumer benefits rather than in any one
 handler.
 
-Dropped duplicates increment a **`duplicate_span` reject counter**, so retry storms surface as
-data rather than as a mystery. Note `duplicate_span` is a **reject reason, not a span flag**.
+Overwrites increment a **`duplicate_span` counter** (not a reject reason — the span is accepted and
+applied, not rejected), so retry storms surface as data rather than as a mystery. An overwrite also
+triggers the same invalidation signal as a new span (§SSE/generation, above), since the stored
+content for an already-rendered span just changed.
 
-> **STOP #4 — undecided.** Last-write-wins vs drop-on-duplicate. OTLP permits a legitimate
-> re-export of the same span id with *updated* fields, so the two choices differ in observable
-> output. This was recorded as an open sub-question of T4 and never resolved. Ask.
+> **STOP #4 — resolved.** Last-write-wins, decided 2026-09-13 at the `/autoplan` Final Approval
+> Gate. Rationale: matches how OTel SDKs commonly patch/retry spans (correcting end-time or adding
+> attributes on resend); the risk (a buggy double-send silently overwriting good data with bad) was
+> judged smaller than the risk of drop-on-duplicate silently discarding a legitimate correction.
 
 ### Generation counter
 
@@ -245,11 +248,13 @@ keeps it from double-rendering.
 ## 5. Retention and eviction
 
 Capped **by memory (`--max-memory`), not by span count**, because bytes/span varies ~5x with
-attribute density.
+attribute density. `--max-memory <n>` is always overridable; the value below is only what applies
+when the flag is omitted.
 
-> **STOP #5 — undecided.** The default: 512 MiB, 1 GiB, or 2 GiB. The assumption is 1 GiB, to be
-> pinned after M1 measures actual bytes/span (`docs/prd.md` §Open Questions → `--max-memory` row). Ask, or implement the flag with
-> no default and require it until M1 lands.
+> **STOP #5 — resolved.** Default: **1 GiB**, decided 2026-09-13 at the `/autoplan` Final Approval
+> Gate. Provisional — re-pin after M1 measures actual bytes/span (`docs/prd.md` §Open Questions →
+> `--max-memory` row); this is a default, not a permanent constant, and remains overridable via
+> `--max-memory <n>` regardless.
 
 Eviction drops the trace with the **oldest last-activity** — the quietest trace. **Never one still
 receiving spans.** A long-running trace that is still getting spans must survive eviction; that is
@@ -387,5 +392,6 @@ over this data). Sampling logic of any kind: it shows what it receives.
 
 ## STOP items live here
 
-**#4** dedupe semantics (T4) and **#5** `--max-memory` default. **#2** — the UI port is named
-nowhere in any document; this spec's server binds it, so it surfaces here first.
+**#4** (dedupe semantics) and **#5** (`--max-memory` default) — both resolved 2026-09-13 at the
+`/autoplan` gate; see §T4 and §5 above. **#2** (UI port) — resolved to **`:5317`**; this spec's
+server binds it.
