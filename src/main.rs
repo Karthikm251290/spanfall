@@ -2,14 +2,13 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use opentelemetry_proto::tonic::collector::trace::v1::trace_service_server::TraceServiceServer;
 use parking_lot::RwLock;
 use spanfall::api;
 use spanfall::api::ApiState;
-use spanfall::ingest::grpc::GrpcTraceService;
 use spanfall::ingest::handler::IngestState;
 use spanfall::ingest::http;
 use spanfall::ingest::receiver_state::ReceiverState;
+use spanfall::ingest::sniff::serve_grpc_with_http_sniffing;
 use spanfall::store::writer::spawn_writer;
 use spanfall::store::Store;
 
@@ -38,9 +37,9 @@ async fn main() {
     let http_addr: SocketAddr = HTTP_ADDR.parse().expect("valid hardcoded address");
     let api_addr: SocketAddr = API_ADDR.parse().expect("valid hardcoded address");
 
-    let grpc = tonic::transport::Server::builder()
-        .add_service(TraceServiceServer::new(GrpcTraceService::new(state.clone())))
-        .serve(grpc_addr);
+    let grpc_listener =
+        tokio::net::TcpListener::bind(grpc_addr).await.unwrap_or_else(|e| panic!("bind {GRPC_ADDR}: {e}"));
+    let grpc = serve_grpc_with_http_sniffing(grpc_listener, state.clone());
 
     let http_listener = tokio::net::TcpListener::bind(http_addr)
         .await
