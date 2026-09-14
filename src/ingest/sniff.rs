@@ -1,4 +1,5 @@
 use std::io;
+use std::time::Duration;
 
 use opentelemetry_proto::tonic::collector::trace::v1::trace_service_server::TraceServiceServer;
 use tokio::io::AsyncWriteExt;
@@ -54,11 +55,20 @@ pub async fn serve_grpc_with_http_sniffing(
 /// (any method) never does. Four bytes distinguish them. `peek()` leaves the bytes in the socket
 /// buffer so tonic still sees the full connection. A connection that never delivers 4 bytes within
 /// a few polls falls to the 400 path -- failing toward the informative reject, not toward tonic.
+///
+/// `peek()`'s readiness is level-triggered: once *any* bytes have arrived, awaiting it again
+/// returns immediately with the same short read instead of waiting for the rest of the preface,
+/// so retrying with no delay would burn all five attempts before a slow-arriving preface finishes.
+/// The `sleep` between attempts is what actually buys the sender time to deliver the rest.
 async fn looks_like_h2_preface(stream: &TcpStream) -> bool {
     let mut buf = [0u8; 4];
-    for _ in 0..5 {
+    for attempt in 0..5 {
+        if attempt > 0 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
         match stream.peek(&mut buf).await {
             Ok(4) => return &buf == b"PRI ",
+            Ok(0) => return false, // peer closed without sending anything
             Ok(_) => continue,
             Err(_) => return false,
         }

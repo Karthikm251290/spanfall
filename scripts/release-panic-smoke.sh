@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
-# Spec 01 acceptance #7. `cargo test` always builds the `test` profile, which is
-# `panic = "unwind"` regardless of what [profile.release] says -- so a plain test suite would
-# stay green even if someone later sets `panic = "abort"` on release, silently breaking the
-# ingest handler's `catch_unwind` guarantee. This runs the actual `--release` binary and checks
-# it returns typed 400s (not a crash) for the two malformed-input cases acceptance #7 names.
+# Spec 01 acceptance #7, PARTIAL. `cargo test` always builds the `test` profile, which is
+# `panic = "unwind"` regardless of what [profile.release] says -- so a plain test suite would stay
+# green even if someone later set `panic = "abort"` on release. This runs the actual `--release`
+# binary and checks it returns typed 400s (not a crash) for the two malformed-input cases
+# acceptance #7 names.
+#
+# What this does NOT prove: both inputs fail at decode(), before convert()'s catch_unwind boundary
+# (§2 hardening #3) is ever reached, so they'd return the same 400 and the process would survive
+# identically under panic = "abort" -- this script would stay green through that exact regression.
+# convert() has no reachable panic today (the ingest module's deny-lints rule out unwrap/expect/
+# panic/indexing), so there's no real payload that exercises catch_unwind itself; see
+# ingest::handler::tests::catch_conversion_panic_maps_a_panic_to_err_instead_of_unwinding for that
+# boundary's unit-level proof instead. Closing this gap for real needs a feature-gated panic
+# injection point in convert(), built only for this script -- not done, ponytail: skip until a
+# reachable panic path actually exists to guard.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
