@@ -12,6 +12,10 @@ pub struct NewSpan {
     pub end_time_unix_nano: u64,
     pub status_message: String,
     pub unknown_service: bool,
+    /// `None` when `unknown_service` is true. Interned by `Store::insert_span` (globally, via
+    /// `Store::service_interner`) before this ever reaches `Trace::insert` -- see
+    /// `Trace::service_name_id`.
+    pub service_name: Option<String>,
     pub attributes: Vec<(String, AttrValue)>,
 }
 
@@ -43,6 +47,9 @@ pub struct Trace {
     status_message: Vec<String>,
     orphan: Vec<bool>,
     unknown_service: Vec<bool>,
+    // globally-interned via `Store::service_interner`; `None` covers both `unknown_service` and
+    // an interner-cap refusal (§1 -- never reject the span over an attribute/service-name cap).
+    service_name_id: Vec<Option<u32>>,
 
     attr_keys: Vec<u32>,
     attr_values: Vec<AttrValue>,
@@ -66,6 +73,7 @@ impl Trace {
             status_message: Vec::new(),
             orphan: Vec::new(),
             unknown_service: Vec::new(),
+            service_name_id: Vec::new(),
             attr_keys: Vec::new(),
             attr_values: Vec::new(),
             attr_offsets: vec![0],
@@ -98,6 +106,19 @@ impl Trace {
         self.span_ids[idx]
     }
 
+    pub fn service_name_id(&self, idx: usize) -> Option<u32> {
+        self.service_name_id[idx]
+    }
+
+    /// `latest end - earliest start` across all spans, checked (§2 hardening #2 -- span
+    /// timestamps are attacker-influenced input). `None` for an empty trace or if the checked
+    /// subtraction would underflow (end before start).
+    pub fn duration_nanos(&self) -> Option<u64> {
+        let earliest_start = self.start_time_unix_nano.iter().copied().min()?;
+        let latest_end = self.end_time_unix_nano.iter().copied().max()?;
+        latest_end.checked_sub(earliest_start)
+    }
+
     pub fn attributes(&self, idx: usize) -> &[AttrValue] {
         let start = self.attr_offsets[idx] as usize;
         let end = self.attr_offsets[idx + 1] as usize;
@@ -117,6 +138,7 @@ impl Trace {
     pub fn insert(
         &mut self,
         mut span: NewSpan,
+        service_name_id: Option<u32>,
         key_interner: &mut Interner,
         now_unix_nano: u64,
     ) -> InsertOutcome {
@@ -128,7 +150,7 @@ impl Trace {
             .collect();
 
         if let Some(&idx) = self.span_index.get(&span.span_id) {
-            self.overwrite_at(idx, span, interned_attrs);
+            self.overwrite_at(idx, span, service_name_id, interned_attrs);
             return InsertOutcome { local_idx: idx, is_duplicate: true };
         }
 
@@ -139,6 +161,7 @@ impl Trace {
         self.end_time_unix_nano.push(span.end_time_unix_nano);
         self.status_message.push(span.status_message);
         self.unknown_service.push(span.unknown_service);
+        self.service_name_id.push(service_name_id);
 
         let (parent_idx, orphan) = match span.parent_span_id {
             None => (None, false),
@@ -172,12 +195,19 @@ impl Trace {
         InsertOutcome { local_idx: idx, is_duplicate: false }
     }
 
-    fn overwrite_at(&mut self, idx: usize, span: NewSpan, interned_attrs: Vec<(u32, AttrValue)>) {
+    fn overwrite_at(
+        &mut self,
+        idx: usize,
+        span: NewSpan,
+        service_name_id: Option<u32>,
+        interned_attrs: Vec<(u32, AttrValue)>,
+    ) {
         self.names[idx] = span.name;
         self.start_time_unix_nano[idx] = span.start_time_unix_nano;
         self.end_time_unix_nano[idx] = span.end_time_unix_nano;
         self.status_message[idx] = span.status_message;
         self.unknown_service[idx] = span.unknown_service;
+        self.service_name_id[idx] = service_name_id;
 
         let old_start = self.attr_offsets[idx] as usize;
         let old_end = self.attr_offsets[idx + 1] as usize;
@@ -211,6 +241,7 @@ mod tests {
             end_time_unix_nano: 200,
             status_message: String::new(),
             unknown_service: false,
+            service_name: None,
             attributes: Vec::new(),
         }
     }
@@ -221,10 +252,10 @@ mod tests {
         let mut interner = Interner::new(100);
         assert_eq!(t.attr_offsets, vec![0]);
 
-        t.insert(span(1, None, "root"), &mut interner, 0);
+        t.insert(span(1, None, "root"), None, &mut interner, 0);
         assert_eq!(t.attr_offsets.len(), 2);
 
-        t.insert(span(2, Some(1), "child"), &mut interner, 0);
+        t.insert(span(2, Some(1), "child"), None, &mut interner, 0);
         assert_eq!(t.attr_offsets.len(), 3);
     }
 
@@ -232,7 +263,7 @@ mod tests {
     fn zero_attribute_span_gets_an_empty_slice() {
         let mut t = Trace::new(TraceId([0; 16]), 0);
         let mut interner = Interner::new(100);
-        let out = t.insert(span(1, None, "root"), &mut interner, 0);
+        let out = t.insert(span(1, None, "root"), None, &mut interner, 0);
         assert_eq!(t.attributes(out.local_idx), &[] as &[AttrValue]);
     }
 
@@ -240,8 +271,8 @@ mod tests {
     fn parent_first_resolves_immediately() {
         let mut t = Trace::new(TraceId([0; 16]), 0);
         let mut interner = Interner::new(100);
-        let root = t.insert(span(1, None, "root"), &mut interner, 0);
-        let child = t.insert(span(2, Some(1), "child"), &mut interner, 0);
+        let root = t.insert(span(1, None, "root"), None, &mut interner, 0);
+        let child = t.insert(span(2, Some(1), "child"), None, &mut interner, 0);
 
         assert_eq!(t.parent_idx(child.local_idx), Some(root.local_idx));
         assert!(!t.is_orphan(child.local_idx));
@@ -251,12 +282,12 @@ mod tests {
     fn child_first_is_orphan_then_patches_when_parent_arrives() {
         let mut t = Trace::new(TraceId([0; 16]), 0);
         let mut interner = Interner::new(100);
-        let child = t.insert(span(2, Some(1), "child"), &mut interner, 0);
+        let child = t.insert(span(2, Some(1), "child"), None, &mut interner, 0);
 
         assert!(t.is_orphan(child.local_idx));
         assert_eq!(t.parent_idx(child.local_idx), None);
 
-        let root = t.insert(span(1, None, "root"), &mut interner, 0);
+        let root = t.insert(span(1, None, "root"), None, &mut interner, 0);
 
         assert!(!t.is_orphan(child.local_idx));
         assert_eq!(t.parent_idx(child.local_idx), Some(root.local_idx));
@@ -266,7 +297,7 @@ mod tests {
     fn parent_never_arriving_renders_as_a_flagged_root() {
         let mut t = Trace::new(TraceId([0; 16]), 0);
         let mut interner = Interner::new(100);
-        let child = t.insert(span(2, Some(99), "child"), &mut interner, 0);
+        let child = t.insert(span(2, Some(99), "child"), None, &mut interner, 0);
 
         assert!(t.is_orphan(child.local_idx));
         assert_eq!(t.parent_idx(child.local_idx), None);
@@ -277,11 +308,11 @@ mod tests {
     fn duplicate_span_id_overwrites_in_place_without_growing_span_count() {
         let mut t = Trace::new(TraceId([0; 16]), 0);
         let mut interner = Interner::new(100);
-        let first = t.insert(span(1, None, "root"), &mut interner, 0);
+        let first = t.insert(span(1, None, "root"), None, &mut interner, 0);
 
         let mut updated = span(1, None, "root-renamed");
         updated.end_time_unix_nano = 999;
-        let second = t.insert(updated, &mut interner, 5);
+        let second = t.insert(updated, None, &mut interner, 5);
 
         assert_eq!(t.span_count(), 1);
         assert!(second.is_duplicate);
@@ -297,8 +328,8 @@ mod tests {
 
         let mut first = span(1, None, "a");
         first.attributes = vec![("k1".to_string(), AttrValue::Bool(true))];
-        t.insert(first, &mut interner, 0);
-        let second_span = t.insert(span(2, None, "b"), &mut interner, 0);
+        t.insert(first, None, &mut interner, 0);
+        let second_span = t.insert(span(2, None, "b"), None, &mut interner, 0);
 
         // now re-send span 1 with three attributes instead of one
         let mut retry = span(1, None, "a");
@@ -307,7 +338,7 @@ mod tests {
             ("k2".to_string(), AttrValue::Int(7)),
             ("k3".to_string(), AttrValue::Double(1.5)),
         ];
-        t.insert(retry, &mut interner, 1);
+        t.insert(retry, None, &mut interner, 1);
 
         assert_eq!(t.attributes(0).len(), 3);
         // span 2, which comes after span 1 in the dense arrays, must still resolve correctly
@@ -325,10 +356,60 @@ mod tests {
         s.attributes = vec![
             ("brand-new-key".to_string(), AttrValue::Str("x".to_string())),
         ];
-        let out = t.insert(s, &mut interner, 0);
+        let out = t.insert(s, None, &mut interner, 0);
 
         assert_eq!(t.span_count(), 1);
         assert_eq!(t.attributes(out.local_idx).len(), 0);
         assert_eq!(interner.cap_hit_count(), 1);
+    }
+
+    #[test]
+    fn service_name_id_round_trips_and_dedupe_overwrites_it() {
+        let mut t = Trace::new(TraceId([0; 16]), 0);
+        let mut interner = Interner::new(100);
+
+        let first = t.insert(span(1, None, "a"), Some(7), &mut interner, 0);
+        assert_eq!(t.service_name_id(first.local_idx), Some(7));
+
+        // re-send the same span under a different (already-interned) service id
+        let second = t.insert(span(1, None, "a"), Some(9), &mut interner, 1);
+        assert_eq!(t.service_name_id(second.local_idx), Some(9));
+    }
+
+    #[test]
+    fn duration_nanos_spans_the_earliest_start_to_latest_end() {
+        let mut t = Trace::new(TraceId([0; 16]), 0);
+        let mut interner = Interner::new(100);
+
+        let mut root = span(1, None, "root");
+        root.start_time_unix_nano = 100;
+        root.end_time_unix_nano = 500;
+        t.insert(root, None, &mut interner, 0);
+
+        let mut child = span(2, Some(1), "child");
+        child.start_time_unix_nano = 150;
+        child.end_time_unix_nano = 900;
+        t.insert(child, None, &mut interner, 0);
+
+        assert_eq!(t.duration_nanos(), Some(800)); // 900 - 100
+    }
+
+    #[test]
+    fn duration_nanos_is_none_for_an_empty_trace() {
+        let t = Trace::new(TraceId([0; 16]), 0);
+        assert_eq!(t.duration_nanos(), None);
+    }
+
+    #[test]
+    fn duration_nanos_is_none_rather_than_underflow_on_end_before_start() {
+        let mut t = Trace::new(TraceId([0; 16]), 0);
+        let mut interner = Interner::new(100);
+
+        let mut malformed = span(1, None, "root");
+        malformed.start_time_unix_nano = 500;
+        malformed.end_time_unix_nano = 100; // attacker-influenced/malformed: end before start
+        t.insert(malformed, None, &mut interner, 0);
+
+        assert_eq!(t.duration_nanos(), None);
     }
 }

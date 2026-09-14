@@ -86,6 +86,7 @@ pub fn convert(request: ExportTraceServiceRequest) -> Result<SpanBatch, RejectRe
                     end_time_unix_nano: pb_span.end_time_unix_nano,
                     status_message,
                     unknown_service,
+                    service_name: service_name.clone(),
                     attributes,
                 };
                 spans.push((trace_id, new_span));
@@ -228,6 +229,7 @@ mod tests {
         assert_eq!(*trace_id, TraceId([1; 16]));
         assert_eq!(new_span.span_id, SpanId([2; 8]));
         assert!(!new_span.unknown_service);
+        assert_eq!(new_span.service_name.as_deref(), Some("checkout"));
     }
 
     #[test]

@@ -59,6 +59,7 @@ mod tests {
             end_time_unix_nano: 0,
             status_message: String::new(),
             unknown_service: false,
+            service_name: None,
             attributes: Vec::new(),
         }
     }

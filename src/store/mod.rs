@@ -62,12 +62,20 @@ impl Store {
         self.service_interner.intern(name)
     }
 
+    pub fn service_name(&self, id: u32) -> &str {
+        self.service_interner.get(id)
+    }
+
     pub fn insert_span(
         &mut self,
         trace_id: TraceId,
-        span: NewSpan,
+        mut span: NewSpan,
         now_unix_nano: u64,
     ) -> StoreInsertOutcome {
+        // Interned before touching `self.traces` -- `&mut self.service_interner` and
+        // `self.traces.entry(..)` can't be borrowed at the same time.
+        let service_name_id = span.service_name.take().and_then(|name| self.service_interner.intern(&name));
+
         let resurrected = !self.traces.contains_key(&trace_id) && self.evicted_generations.contains_key(&trace_id);
 
         let trace = self.traces.entry(trace_id).or_insert_with(|| {
@@ -82,7 +90,7 @@ impl Store {
         });
 
         let InsertOutcome { local_idx, is_duplicate } =
-            trace.insert(span, &mut self.key_interner, now_unix_nano);
+            trace.insert(span, service_name_id, &mut self.key_interner, now_unix_nano);
 
         if is_duplicate {
             self.counters.duplicate_span += 1;
@@ -150,6 +158,7 @@ mod tests {
             end_time_unix_nano: 0,
             status_message: String::new(),
             unknown_service: false,
+            service_name: None,
             attributes: Vec::new(),
         }
     }
@@ -203,5 +212,18 @@ mod tests {
 
         assert!(outcome.is_duplicate);
         assert_eq!(store.counters.duplicate_span, 1);
+    }
+
+    #[test]
+    fn insert_span_interns_the_service_name_and_it_resolves_back() {
+        let mut store = Store::new(10_000);
+        let mut s = span(1, "a");
+        s.service_name = Some("checkout".to_string());
+
+        store.insert_span(tid(1), s, 0);
+
+        let trace = store.trace(tid(1)).unwrap();
+        let id = trace.service_name_id(0).unwrap();
+        assert_eq!(store.service_name(id), "checkout");
     }
 }
