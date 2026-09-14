@@ -190,6 +190,25 @@ mod tests {
         }
     }
 
+    /// Acceptance #9: hitting the global interner cap must surface as a Receiver warning
+    /// (`counters.attribute_key_cap_hit`, piped verbatim into `/api/receiver`), not silently grow
+    /// forever. `store::interner::tests` covers the `Interner` itself in isolation; this is the
+    /// one-line sync at `Store::insert_span` (`self.counters.attribute_key_cap_hit = ...`)
+    /// actually running, exercised the same way a real span would trigger it.
+    #[test]
+    fn attribute_key_cap_hit_counter_reflects_the_global_interner_cap() {
+        let mut store = Store::new(usize::MAX);
+        let mut s = span(1, "op");
+        // one more distinct attribute key than the global cap allows -- the last one is refused.
+        s.attributes = (0..=GLOBAL_INTERNER_CAP)
+            .map(|i| (format!("k{i}"), crate::store::types::AttrValue::Bool(true)))
+            .collect();
+
+        store.insert_span(tid(1), s, 0);
+
+        assert_eq!(store.counters.attribute_key_cap_hit, 1);
+    }
+
     #[test]
     fn eviction_picks_oldest_last_activity_not_oldest_created() {
         // one span's approx footprint is APPROX_SPAN_FIXED_BYTES (64) + name len (1) = 65.
