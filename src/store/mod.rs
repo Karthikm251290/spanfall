@@ -1,6 +1,7 @@
 pub mod interner;
 pub mod trace;
 pub mod types;
+pub mod writer;
 
 use rustc_hash::FxHashMap;
 

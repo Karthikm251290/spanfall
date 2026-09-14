@@ -8,4 +8,7 @@ pub struct Counters {
     pub attribute_key_cap_hit: u64,
     pub late_span_after_eviction: u64,
     pub evicted_traces: u64,
+    /// Per-span decode failures within an otherwise-parseable envelope (§2, PartialBatch) --
+    /// the span is dropped, the rest of the batch is kept.
+    pub malformed_span: u64,
 }
