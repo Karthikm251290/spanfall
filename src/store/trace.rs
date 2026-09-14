@@ -11,6 +11,9 @@ pub struct NewSpan {
     pub start_time_unix_nano: u64,
     pub end_time_unix_nano: u64,
     pub status_message: String,
+    /// OTel status code, mirrored verbatim from the proto (0=Unset, 1=Ok, 2=Error) — §6's
+    /// `status=error` filter term is `code == 2`.
+    pub status_code: i32,
     pub unknown_service: bool,
     /// `None` when `unknown_service` is true. Interned by `Store::insert_span` (globally, via
     /// `Store::service_interner`) before this ever reaches `Trace::insert` -- see
@@ -45,6 +48,7 @@ pub struct Trace {
     start_time_unix_nano: Vec<u64>,
     end_time_unix_nano: Vec<u64>,
     status_message: Vec<String>,
+    status_code: Vec<i32>,
     orphan: Vec<bool>,
     unknown_service: Vec<bool>,
     // globally-interned via `Store::service_interner`; `None` covers both `unknown_service` and
@@ -71,6 +75,7 @@ impl Trace {
             start_time_unix_nano: Vec::new(),
             end_time_unix_nano: Vec::new(),
             status_message: Vec::new(),
+            status_code: Vec::new(),
             orphan: Vec::new(),
             unknown_service: Vec::new(),
             service_name_id: Vec::new(),
@@ -120,6 +125,10 @@ impl Trace {
 
     pub fn status_message(&self, idx: usize) -> &str {
         &self.status_message[idx]
+    }
+
+    pub fn status_code(&self, idx: usize) -> i32 {
+        self.status_code[idx]
     }
 
     pub fn unknown_service(&self, idx: usize) -> bool {
@@ -176,6 +185,7 @@ impl Trace {
         self.start_time_unix_nano.push(span.start_time_unix_nano);
         self.end_time_unix_nano.push(span.end_time_unix_nano);
         self.status_message.push(span.status_message);
+        self.status_code.push(span.status_code);
         self.unknown_service.push(span.unknown_service);
         self.service_name_id.push(service_name_id);
 
@@ -222,6 +232,7 @@ impl Trace {
         self.start_time_unix_nano[idx] = span.start_time_unix_nano;
         self.end_time_unix_nano[idx] = span.end_time_unix_nano;
         self.status_message[idx] = span.status_message;
+        self.status_code[idx] = span.status_code;
         self.unknown_service[idx] = span.unknown_service;
         self.service_name_id[idx] = service_name_id;
 
@@ -256,6 +267,7 @@ mod tests {
             start_time_unix_nano: 100,
             end_time_unix_nano: 200,
             status_message: String::new(),
+            status_code: 0,
             unknown_service: false,
             service_name: None,
             attributes: Vec::new(),
@@ -427,5 +439,21 @@ mod tests {
         t.insert(malformed, None, &mut interner, 0);
 
         assert_eq!(t.duration_nanos(), None);
+    }
+
+    #[test]
+    fn status_code_round_trips_and_dedupe_overwrites_it() {
+        let mut t = Trace::new(TraceId([0; 16]), 0);
+        let mut interner = Interner::new(100);
+
+        let mut ok = span(1, None, "root");
+        ok.status_code = 1; // Ok
+        let first = t.insert(ok, None, &mut interner, 0);
+        assert_eq!(t.status_code(first.local_idx), 1);
+
+        let mut err = span(1, None, "root");
+        err.status_code = 2; // Error
+        let second = t.insert(err, None, &mut interner, 1);
+        assert_eq!(t.status_code(second.local_idx), 2);
     }
 }

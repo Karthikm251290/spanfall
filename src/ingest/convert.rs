@@ -77,6 +77,7 @@ pub fn convert(request: ExportTraceServiceRequest) -> Result<SpanBatch, RejectRe
                     .as_ref()
                     .map(|s| s.message.clone())
                     .unwrap_or_default();
+                let status_code = pb_span.status.as_ref().map(|s| s.code).unwrap_or(0);
 
                 let new_span = NewSpan {
                     span_id,
@@ -85,6 +86,7 @@ pub fn convert(request: ExportTraceServiceRequest) -> Result<SpanBatch, RejectRe
                     start_time_unix_nano: pb_span.start_time_unix_nano,
                     end_time_unix_nano: pb_span.end_time_unix_nano,
                     status_message,
+                    status_code,
                     unknown_service,
                     service_name: service_name.clone(),
                     attributes,
@@ -230,6 +232,17 @@ mod tests {
         assert_eq!(new_span.span_id, SpanId([2; 8]));
         assert!(!new_span.unknown_service);
         assert_eq!(new_span.service_name.as_deref(), Some("checkout"));
+    }
+
+    #[test]
+    fn status_code_carries_through_from_the_proto() {
+        let mut span = minimal_span([1; 16], [2; 8], None);
+        span.status = Some(Status { message: "boom".to_string(), code: 2 });
+        let req = request_with(vec![resource_spans_with(Some("svc"), vec![span])]);
+
+        let batch = convert(req).unwrap();
+        assert_eq!(batch.spans[0].1.status_code, 2);
+        assert_eq!(batch.spans[0].1.status_message, "boom");
     }
 
     #[test]

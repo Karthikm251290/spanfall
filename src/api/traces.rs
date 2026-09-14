@@ -59,6 +59,7 @@ pub struct TracePayload {
     start_time_unix_nano: Vec<u64>,
     end_time_unix_nano: Vec<u64>,
     status_message_idx: Vec<u32>,
+    status_code: Vec<i32>,
     orphan: Vec<bool>,
     unknown_service: Vec<bool>,
     service_idx: Vec<Option<u32>>,
@@ -102,6 +103,7 @@ pub async fn get_trace(State(store): State<Arc<RwLock<Store>>>, Path(id): Path<S
     let mut start_time_unix_nano = Vec::with_capacity(n);
     let mut end_time_unix_nano = Vec::with_capacity(n);
     let mut status_message_idx = Vec::with_capacity(n);
+    let mut status_code = Vec::with_capacity(n);
     let mut orphan = Vec::with_capacity(n);
     let mut unknown_service = Vec::with_capacity(n);
     let mut service_idx = Vec::with_capacity(n);
@@ -112,6 +114,7 @@ pub async fn get_trace(State(store): State<Arc<RwLock<Store>>>, Path(id): Path<S
         start_time_unix_nano.push(trace.start_time_unix_nano(idx));
         end_time_unix_nano.push(trace.end_time_unix_nano(idx));
         status_message_idx.push(table.intern(trace.status_message(idx)));
+        status_code.push(trace.status_code(idx));
         orphan.push(trace.is_orphan(idx));
         unknown_service.push(trace.unknown_service(idx));
         service_idx.push(trace.service_name_id(idx).map(|sid| table.intern(guard.service_name(sid))));
@@ -126,6 +129,7 @@ pub async fn get_trace(State(store): State<Arc<RwLock<Store>>>, Path(id): Path<S
         start_time_unix_nano,
         end_time_unix_nano,
         status_message_idx,
+        status_code,
         orphan,
         unknown_service,
         service_idx,
@@ -155,6 +159,7 @@ mod tests {
             start_time_unix_nano: 100,
             end_time_unix_nano: 500,
             status_message: String::new(),
+            status_code: 0,
             unknown_service: false,
             service_name: Some("checkout".to_string()),
             attributes: vec![("http.status_code".to_string(), crate::store::types::AttrValue::Int(200))],
@@ -167,6 +172,7 @@ mod tests {
             start_time_unix_nano: 150,
             end_time_unix_nano: 900,
             status_message: String::new(),
+            status_code: 0,
             unknown_service: false,
             service_name: Some("db".to_string()),
             attributes: Vec::new(),

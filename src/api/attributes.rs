@@ -70,6 +70,7 @@ mod tests {
             start_time_unix_nano: 1,
             end_time_unix_nano: 2,
             status_message: String::new(),
+            status_code: 0,
             unknown_service: false,
             service_name: Some("checkout".to_string()),
             attributes: vec![

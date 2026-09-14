@@ -168,6 +168,7 @@ mod tests {
             start_time_unix_nano: 0,
             end_time_unix_nano: 0,
             status_message: String::new(),
+            status_code: 0,
             unknown_service: false,
             service_name: None,
             attributes: Vec::new(),
