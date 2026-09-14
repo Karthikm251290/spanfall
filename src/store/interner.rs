@@ -45,6 +45,13 @@ impl Interner {
         &self.values[id as usize]
     }
 
+    /// Read-only lookup — used by the filter parser to resolve a query's `KEY` to the id stored
+    /// in the CSR arrays, without mutating (unlike `intern`) or polluting the table with
+    /// one-off query text that never appeared on a real span.
+    pub fn lookup(&self, s: &str) -> Option<u32> {
+        self.map.get(s).copied()
+    }
+
     pub fn cap_hit_count(&self) -> u64 {
         self.cap_hit_count
     }
@@ -92,6 +99,15 @@ mod tests {
         assert_eq!(i.intern("a"), Some(a));
         assert_eq!(i.get(b), "b");
         assert_eq!(i.len(), 2);
+    }
+
+    #[test]
+    fn lookup_finds_an_interned_string_without_mutating_and_misses_return_none() {
+        let mut i = Interner::new(10);
+        let id = i.intern("http.method").unwrap();
+        assert_eq!(i.lookup("http.method"), Some(id));
+        assert_eq!(i.lookup("never-interned"), None);
+        assert_eq!(i.len(), 1);
     }
 
     #[test]

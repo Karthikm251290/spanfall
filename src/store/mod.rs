@@ -77,6 +77,13 @@ impl Store {
         self.key_interner.get(id)
     }
 
+    /// Resolves a filter query's `KEY` string to the id stored in the CSR arrays -- `None` means
+    /// no span has ever carried that key, which the filter parser treats as "matches nothing",
+    /// not as a malformed term.
+    pub fn attribute_key_id(&self, key: &str) -> Option<u32> {
+        self.key_interner.lookup(key)
+    }
+
     pub fn insert_span(
         &mut self,
         trace_id: TraceId,
