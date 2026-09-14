@@ -58,6 +58,13 @@ impl Store {
         self.traces.get(&trace_id)
     }
 
+    /// Callers hold the read lock only long enough to copy out owned rows from these borrows,
+    /// then drop it before serialising (§4 -- "readers copy out the rows they need and release
+    /// the lock before serialising").
+    pub fn traces(&self) -> impl Iterator<Item = (&TraceId, &Trace)> {
+        self.traces.iter()
+    }
+
     pub fn intern_service_name(&mut self, name: &str) -> Option<u32> {
         self.service_interner.intern(name)
     }

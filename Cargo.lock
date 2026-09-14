@@ -1144,6 +1144,7 @@ dependencies = [
  "prost",
  "rust-embed",
  "rustc-hash",
+ "serde",
  "serde_json",
  "tokio",
  "tonic",

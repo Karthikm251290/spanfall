@@ -110,6 +110,22 @@ impl Trace {
         self.service_name_id[idx]
     }
 
+    pub fn start_time_unix_nano(&self, idx: usize) -> u64 {
+        self.start_time_unix_nano[idx]
+    }
+
+    pub fn end_time_unix_nano(&self, idx: usize) -> u64 {
+        self.end_time_unix_nano[idx]
+    }
+
+    pub fn status_message(&self, idx: usize) -> &str {
+        &self.status_message[idx]
+    }
+
+    pub fn unknown_service(&self, idx: usize) -> bool {
+        self.unknown_service[idx]
+    }
+
     /// `latest end - earliest start` across all spans, checked (§2 hardening #2 -- span
     /// timestamps are attacker-influenced input). `None` for an empty trace or if the checked
     /// subtraction would underflow (end before start).
