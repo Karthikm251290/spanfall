@@ -10,7 +10,7 @@ use interner::Interner;
 use trace::{InsertOutcome, NewSpan, Trace};
 use types::TraceId;
 
-// ponytail: no number is pinned in spec 01 §1 for the global interner cap ("a hard cap" is
+// note: no number is pinned in spec 01 §1 for the global interner cap ("a hard cap" is
 // stated but not sized), unlike --max-memory (STOP #5, pinned to 1 GiB). Picking a default here
 // rather than stopping, since it's an internal implementation constant, not a product-facing
 // decision — flagged for the owner to override if wrong. Bump if real traces blow past it.

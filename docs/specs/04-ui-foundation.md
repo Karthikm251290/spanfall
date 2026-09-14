@@ -11,7 +11,7 @@ framework assumption. That is why it is split from spec 05.
 
 ## T9 — the `DataSource` seam
 
-**Effort:** ~3h human / ~30min CC. **Lands *with* M2's waterfall, not after it.**
+**Effort:** ~3h. **Lands *with* M2's waterfall, not after it.**
 
 Four methods, one interface, two implementations:
 
@@ -49,7 +49,7 @@ results."
 
 ## D8 — the design token block
 
-**Effort:** ~2h human / ~20min CC. `ui/src/tokens.css`.
+**Effort:** ~2h. `ui/src/tokens.css`.
 
 One block, read by **both** the live viewer and the exported file, since they share one
 `rust-embed` asset set. Two surfaces sharing one bundle is precisely why the tokens must exist:
@@ -102,7 +102,7 @@ transcription.
 
 ## D9 — embed the two faces
 
-**Effort:** ~2h human / ~20min CC. `src/assets/fonts/`, `ui/src/tokens.css`.
+**Effort:** ~2h. `src/assets/fonts/`, `ui/src/tokens.css`.
 
 IBM Plex Sans (UI) and IBM Plex Mono (**every id, count and duration**). Latin subset, woff2,
 embedded in the binary and inlined in exports. Budget ~40–60KB total.
@@ -118,7 +118,7 @@ appearance, since a fallback face can look close enough to pass a glance.
 
 ## D12 — keyboard model, as a module
 
-**Effort:** ~4h human / ~40min CC (the logic half here; wiring to rows is spec 05).
+**Effort:** ~4h (the logic half here; wiring to rows is spec 05).
 `ui/src/keys.ts`.
 
 | Key | Action |

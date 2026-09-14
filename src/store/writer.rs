@@ -48,7 +48,7 @@ async fn run(store: Arc<RwLock<Store>>, mut rx: mpsc::Receiver<SpanBatch>, seq_t
 }
 
 fn now_unix_nano() -> u64 {
-    // ponytail: falls back to 0 on a pre-1970 clock, which cannot happen on real hardware this
+    // note: falls back to 0 on a pre-1970 clock, which cannot happen on real hardware this
     // tool runs on. Not worth a Result here.
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

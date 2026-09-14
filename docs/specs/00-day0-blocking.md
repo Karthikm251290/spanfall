@@ -15,7 +15,7 @@ rather than any tracescope code, so it has no dependency on M0 existing.
 
 ## T0 — Decide the name
 
-**Effort:** ~1h human / ~10min CC. **STOP item #1 and #3.**
+**Effort:** ~1h. **STOP item #1 and #3.**
 
 The name lands in: crate name, binary name, env-var prefix, repo URL, benchmark repo URL, and
 every document. `tracescope` is a placeholder throughout these specs.
@@ -34,7 +34,7 @@ Deliverables:
 
 ## T1 — Validate the six rules before building the engine
 
-**Effort:** ~half day human / ~1h CC. **Gates spec 03. STOP item #6.**
+**Effort:** ~half day. **Gates spec 03. STOP item #6.**
 
 This inverts the CEO plan's original order, which scheduled validation *after* the rules existed.
 An afternoon here precedes ~1.5 weeks of engine work, and its outcome can delete rules.
@@ -87,7 +87,7 @@ maintenance-bearing table that rots as OTel evolves.
 
 ## T3 — Throwaway trace producer
 
-**Effort:** ~2h human / ~20min CC.
+**Effort:** ~2h.
 
 A ~50-line script that emits traces at a controllable span count to an OTLP endpoint.
 

@@ -49,7 +49,7 @@ Two things to understand, so they are not reinvented under new names:
 
 ## T6 — `store::LintView`
 
-**Effort:** ~2h human / ~20min CC.
+**Effort:** ~2h.
 
 A read accessor over the store, in `src/store/lint_view.rs`.
 
@@ -67,7 +67,7 @@ this spec's lane from colliding with spec 01's.
 
 ## T5 + D1 — scope: the decision that makes the loop close
 
-**T5:** ~3d human / ~4h CC. **D1:** ~2h human / ~20min CC.
+**T5:** ~3d. **D1:** ~2h.
 
 | Invocation | Scope |
 |---|---|
@@ -88,7 +88,7 @@ therefore visible by construction rather than silent.
 
 ## D2 — every rule declares its scope, and skipped rules are named
 
-**Effort:** ~2h human / ~20min CC.
+**Effort:** ~2h.
 
 The immediate consequence of D1: a rule that needs many traces **cannot fire** at newest-trace
 scope. Left implicit, it reads as a pass. That is a silent false negative in a correctness tool.
@@ -157,7 +157,7 @@ Full write-up: `scripts/spike-harness/t1-findings-20260913.md`.
 
 ## T7 — one `lint::Finding` type
 
-**Effort:** ~2h human / ~20min CC.
+**Effort:** ~2h.
 
 One type owns: rule id, severity, **count**, `examined` (traces or file path), samples, span link,
 and **the headline sentence**.
@@ -268,7 +268,7 @@ a file: **identical content, no ANSI escape codes.** Review the two together or 
 
 ### D13 — the running process says one thing, once
 
-**Effort:** ~1h human / ~10min CC.
+**Effort:** ~1h.
 
 The server process prints what it receives, plus **one** instrumentation nudge the first time spans
 arrive, then never again:

@@ -142,7 +142,7 @@ fn span_id_of(bytes: &[u8]) -> Option<SpanId> {
 
 /// Unsupported attribute value kinds (array/kvlist/bytes/unset) are dropped rather than mapped.
 ///
-/// ponytail: `AttrValue` has no array/nested-object variant. Every real-world attribute this
+/// note: `AttrValue` has no array/nested-object variant. Every real-world attribute this
 /// tool exists to diagnose (http.status_code, service.name, ...) is a scalar; add a variant if
 /// a real trace needs one.
 fn attr_of(kv: &KeyValue) -> Option<(String, AttrValue)> {

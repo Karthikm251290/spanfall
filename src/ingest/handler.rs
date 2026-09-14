@@ -82,7 +82,7 @@ where
 }
 
 fn now_unix_nano() -> u64 {
-    // ponytail: same pre-1970-clock fallback as store/writer.rs's now_unix_nano — cannot happen
+    // note: same pre-1970-clock fallback as store/writer.rs's now_unix_nano — cannot happen
     // on real hardware this tool runs on.
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

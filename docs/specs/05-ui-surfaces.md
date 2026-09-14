@@ -46,7 +46,7 @@ calls `fetch`.**
 
 ## D3 (render half) — three peer tabs
 
-**Effort:** part of D3's ~3h human / ~30min CC.
+**Effort:** part of D3's ~3h.
 
 Renders the nav state from `ui/src/nav.ts`. Three peer tabs: `Traces`, `Lint`, `Receiver`. Trace
 list lands; a trace opens as a layer over it with an explicit back.
@@ -63,7 +63,7 @@ invented.
 
 ## D4 — first-run empty state
 
-**Effort:** ~3h human / ~30min CC.
+**Effort:** ~3h.
 
 This is **Story 1's first impression** and the most-seen screen in the product's life. The failure
 it prevents: shipping "No traces found."
@@ -77,8 +77,7 @@ Contents: **teach the next action.**
 The alternative — stating the bare fact that there are no traces — was considered and **rejected**,
 because it does not help the most common first-run failure, which is a misconfigured exporter.
 
-> **STOP #2 — resolved: `:5317`.** Decided 2026-09-13 at the `/autoplan` gate. This screen prints
-> `http://localhost:5317`.
+> **STOP #2 — resolved: `:5317`.** Decided 2026-09-13. This screen prints `http://localhost:5317`.
 
 **Per-language SDK snippets are out of scope.** Two env vars cover the common case; four SDK
 snippets are four things to keep correct in a tool whose whole claim is that it needs no
@@ -88,7 +87,7 @@ configuration.
 
 ## D5 — trace-open skeleton, no spinner
 
-**Effort:** ~3h human / ~30min CC.
+**Effort:** ~3h.
 
 M1 permits up to **3s** to first paint on a 40k-span trace. Nothing was specified to fill that time.
 
@@ -108,7 +107,7 @@ draw the new trace's skeleton — never merge rows from two traces.
 
 ## D6 — live trace marker, pull to apply
 
-**Effort:** ~4h human / ~40min CC.
+**Effort:** ~4h.
 
 SSE invalidation was specified (spec 01 §6); its **appearance** never was.
 
@@ -124,11 +123,9 @@ and the reader decides when it runs.
 
 ## D7 — the Lint tab
 
-**Effort:** ~4h human / ~40min CC.
+**Effort:** ~4h.
 
-**Approved direction: variant B** —
-`~/.gstack/projects/spanfall/designs/lint-tab-20260913/wireframes.html`, block B. Choice recorded in
-`approved.json` beside it.
+**Approved direction: variant B**, from the lint-tab wireframe review.
 
 Severity as a **3px left rule** with **group headings that name what the tier means**, rather than an
 `ERROR`/`WARN`/`INFO` token the reader must already understand. The grouping carries the meaning, so

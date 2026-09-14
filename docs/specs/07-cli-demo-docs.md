@@ -35,8 +35,8 @@ non-localhost bind, CI `assert` mode, watch mode.
 > (`env!("CARGO_BIN_NAME")` or clap's automatic name) so T0's resolution is a one-line change, not a
 > repo-wide replace. **Help text and error messages must not hardcode it either.**
 
-> **STOP #2 — resolved: `:5317`.** Decided 2026-09-13 at the `/autoplan` gate. Startup print (T16,
-> plain `tracescope` invocation, no args):
+> **STOP #2 — resolved: `:5317`.** Decided 2026-09-13. Startup print (T16, plain `tracescope`
+> invocation, no args):
 > ```
 > Listening on http://localhost:5317
 > OTLP gRPC: 4317   OTLP HTTP: 4318
@@ -47,7 +47,7 @@ non-localhost bind, CI `assert` mode, watch mode.
 
 ## T16 — port-conflict detection
 
-**Effort:** ~3h human / ~30min CC.
+**Effort:** ~3h.
 
 When 4317 or 4318 is already bound, **name the process holding it** — pid and process name — not
 `address already in use`.
@@ -63,7 +63,7 @@ This is the same work as **CEO T17**. Two numbers, one task. Build it once.
 
 ## T15 — demo mode and the committed fixture
 
-**Effort:** ~1d human / ~2h CC.
+**Effort:** ~1d.
 
 Two deliverables:
 
@@ -88,7 +88,7 @@ against, and it is what a reader runs first.
 
 ## T14 — re-cost the milestone table
 
-**Effort:** ~2h human / ~20min CC. **The single task that unblocks honest scheduling.**
+**Effort:** ~2h. **The single task that unblocks honest scheduling.**
 
 `docs/prd.md` §Milestone Plan states 9–10 weeks and then carries a table that was never updated: the row itself
 admits "the table below still needs the expansions distributed across milestones."
@@ -111,7 +111,7 @@ fill it in. Flag it.
 
 ## D14 — stale documentation lines
 
-**Effort:** ~30min human / ~10min CC. **Partly done already.**
+**Effort:** ~30min. **Partly done already.**
 
 Already fixed in-review on 2026-09-13: `docs/prd.md` gained an **Interface surface (v1)** block and
 Story 1's no-restart acceptance condition; the design doc's Lint tab mockup was corrected for the
@@ -134,7 +134,7 @@ T14, and there are two different T14s across the two series.
 
 ## CEO T18 — semver policy and CHANGELOG ⚠️ ORPHAN
 
-**Effort:** ~1h human / ~15min CC. **Needs a keep-or-cut decision.**
+**Effort:** ~1h. **Needs a keep-or-cut decision.**
 
 **Status:** this task appears in the CEO review's task list and in the distribution diagram, and it
 was **never carried into the engineering T0–T16 list.** Confirmed absent from

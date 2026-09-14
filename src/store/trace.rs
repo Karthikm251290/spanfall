@@ -33,7 +33,7 @@ pub struct InsertOutcome {
 /// dense `attr_keys`/`attr_values` arrays. `attr_offsets.len() == n + 1` always; the sentinel is
 /// pushed at construction, not on first insert (§1 — this is where the off-by-one lives).
 ///
-/// ponytail: span names / status messages live in an owned `String` per span rather than a
+/// note: span names / status messages live in an owned `String` per span rather than a
 /// packed per-trace byte arena. Satisfies §1's actual requirement ("freed when the trace is
 /// evicted" — dropping the Trace drops the Strings) with far less code. Pack into a byte arena
 /// if M1's bytes/span measurement demands it.

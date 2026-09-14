@@ -119,7 +119,7 @@ no second mechanism.
 
 **Status: unblocked.** STOP #4 resolved 2026-09-13 (autoplan gate, taste decision): **last-write-wins.**
 
-**Effort:** ~3h human / ~30min CC.
+**Effort:** ~3h.
 
 Dedupe at insert, riding the `span_id` probe that parent resolution already performs — so this
 costs no additional hash lookup. On a duplicate `(trace_id, span_id)`, the incoming span's fields
@@ -137,8 +137,8 @@ applied, not rejected), so retry storms surface as data rather than as a mystery
 triggers the same invalidation signal as a new span (§SSE/generation, above), since the stored
 content for an already-rendered span just changed.
 
-> **STOP #4 — resolved.** Last-write-wins, decided 2026-09-13 at the `/autoplan` Final Approval
-> Gate. Rationale: matches how OTel SDKs commonly patch/retry spans (correcting end-time or adding
+> **STOP #4 — resolved.** Last-write-wins, decided 2026-09-13 at the final review gate.
+> Rationale: matches how OTel SDKs commonly patch/retry spans (correcting end-time or adding
 > attributes on resend); the risk (a buggy double-send silently overwriting good data with bad) was
 > judged smaller than the risk of drop-on-duplicate silently discarding a legitimate correction.
 
@@ -251,8 +251,8 @@ Capped **by memory (`--max-memory`), not by span count**, because bytes/span var
 attribute density. `--max-memory <n>` is always overridable; the value below is only what applies
 when the flag is omitted.
 
-> **STOP #5 — resolved.** Default: **1 GiB**, decided 2026-09-13 at the `/autoplan` Final Approval
-> Gate. Provisional — re-pin after M1 measures actual bytes/span (`docs/prd.md` §Open Questions →
+> **STOP #5 — resolved.** Default: **1 GiB**, decided 2026-09-13 at the final review gate.
+> Provisional — re-pin after M1 measures actual bytes/span (`docs/prd.md` §Open Questions →
 > `--max-memory` row); this is a default, not a permanent constant, and remains overridable via
 > `--max-memory <n>` regardless.
 
@@ -361,8 +361,7 @@ not require a browser.
 
 ## Acceptance
 
-Cite from
-`~/.gstack/projects/spanfall/karthik-no-branch-eng-review-test-plan-20260913-122923.md`:
+Cite from the engineering test plan's
 "Key Interactions" rows 1–3, and "Edge Cases" — the parent-never-seen row, missing `service.name`,
 partial batch, truncated protobuf, 15k burst, memory-cap boundary, evicted-trace span, long-running
 trace not evicted, ring-buffer wraparound, retried-429 dedupe, port-already-bound.
@@ -392,6 +391,5 @@ over this data). Sampling logic of any kind: it shows what it receives.
 
 ## STOP items live here
 
-**#4** (dedupe semantics) and **#5** (`--max-memory` default) — both resolved 2026-09-13 at the
-`/autoplan` gate; see §T4 and §5 above. **#2** (UI port) — resolved to **`:5317`**; this spec's
-server binds it.
+**#4** (dedupe semantics) and **#5** (`--max-memory` default) — both resolved 2026-09-13; see
+§T4 and §5 above. **#2** (UI port) — resolved to **`:5317`**; this spec's server binds it.

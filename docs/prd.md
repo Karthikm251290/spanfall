@@ -1,17 +1,6 @@
----
-id: 01M2CHBP4RM7XYFD5N2SAAEA88
-type: prd
-title: "Local OpenTelemetry Trace Viewer (Rust) — v1"
-created_at: 2026-09-13T04:45:40Z
-skill: prd-generator
-work_area: specs
-derived_from: "Research report: Local OpenTelemetry Viewer — Pain Points, Competitive Gaps, and v1 Design Validation (2026-09-13)"
-tags: [rust, opentelemetry, observability, developer-tools, oss]
----
-
 # PRD: Local OpenTelemetry Trace Viewer — working name `tracescope`
 
-**Status:** Draft — Architecture Decided (v1 storage/query design settled 2026-09-13 via `/plan-eng-review`; see Architecture and "Decided Against" below)
+**Status:** Draft — Architecture Decided (v1 storage/query design settled 2026-09-13; see Architecture and "Decided Against" below)
 **Owner:** Karthik
 **Last Updated:** 2026-09-13
 **Target Release:** v1 (Stage 1) — 9–10 weeks from first commit (serious push, not weekend pace). Was 6–8; re-costed 2026-09-13 when the CEO review's scope expansions (linter, HTML export, demo) added ~2.3 weeks that had never been added to the milestone table.
@@ -106,7 +95,7 @@ Indicators are weighted by the stated priority order. A public benchmark result 
 | External contributors (merged PR) | 0 | ≥3 | 6 months post-launch |
 | Unprompted mention in an OTel community channel, newsletter, or awesome-list | 0 | ≥1 | 6 months post-launch |
 | Benchmark claims survive public scrutiny (HN/Reddit) without being credibly debunked | n/a | No successful methodology challenge | At launch + 2 weeks |
-| Repo cited in a job conversation or interview | 0 | ≥1 | [PLACEHOLDER — timeline still unset; owner confirmed 2026-09-13 (`/autoplan` gate, STOP #8) it does not gate v1 scope regardless] |
+| Repo cited in a job conversation or interview | 0 | ≥1 | [PLACEHOLDER — timeline still unset; owner confirmed 2026-09-13 (STOP #8) it does not gate v1 scope regardless] |
 
 ### Leading Indicators (pre-launch signals)
 
@@ -155,7 +144,8 @@ Decided 2026-09-13. The organizing insight: a 40k-span trace is roughly 8–16 M
 - **UI:** embedded SPA served by `axum` from the binary (the otel-desktop-viewer pattern), chosen over TUI because deep-zoom waterfalls, attribute panels, and diff views are impractical in a terminal.
 - **TUI mode:** deferred, not rejected.
 
-**Interface surface (v1) — settled by `/plan-design-review` 2026-09-13.** Detail of record is `docs/designs/tracescope-v1.md` (§Lint tab, §Terminal output, §Design tokens, §Keyboard); this is the summary an implementer needs before opening that file:
+**Interface surface (v1) — settled 2026-09-13.** This is the summary of the design decisions
+(lint tab, terminal output, design tokens, keyboard):
 
 - **CLI:** `tracescope` (run), `tracescope lint` (**newest resident trace**), `tracescope lint --all` (everything resident), `tracescope lint <file.otlp>` (a capture, via the Stage 2 load path), `tracescope export <trace-id>`, `--redact`, `--force`, `--demo`. Lint is computed **on request** — no accumulator, no epochs, no reset — so two calls with no traffic between them return identical output.
 - **Lint scope is the reason the loop closes.** Defaulting to the newest trace is what makes `✓ clean` reachable after you fix your instrumentation: the old bad traces stay resident and would otherwise keep reporting. Each of the six rules declares per-trace or cross-trace scope; the default run **names the two rules it skipped** (span-name cardinality, attribute type conflict) and prints the command that runs them. A skipped rule must never render as a pass.

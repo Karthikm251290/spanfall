@@ -6,9 +6,10 @@
 
 **What:** The v1 store is `HashMap<TraceId, Arc<TraceSlab>>` — fast for "open trace X" (O(1)) and for filtering within one open trace, but there is no index across traces. A feature like "find every trace containing a span where `http.status_code = 500`" would require scanning every slab.
 
-**Why:** This is the one requirement change that would invalidate the v1 storage decision (`/plan-eng-review`, 2026-09-13). It is deliberately NOT in the PRD's v1 scope — Story 2 filters within an open trace, and the Success Criteria latency targets are all single-trace. Worth knowing the tripwire so it's a conscious decision if it comes up, rather than a slow slide into needing an engine.
+**Why:** This is the one requirement change that would invalidate the v1 storage decision (eng
+review, 2026-09-13). It is deliberately NOT in the PRD's v1 scope — Story 2 filters within an open trace, and the Success Criteria latency targets are all single-trace. Worth knowing the tripwire so it's a conscious decision if it comes up, rather than a slow slide into needing an engine.
 
-**Context:** If cross-trace search becomes a real requirement, the options in order of cost: (1) maintain an inverted index from attribute key/value → trace_id on insert, which is cheap and probably enough for a local tool; (2) bring DataFusion in over persisted Parquet, which is already the Stage 2 plan for cross-trace/persisted queries anyway. Don't reach for the engine for the in-memory hot path — see the superseded decision in `~/.gstack` for why that was reversed.
+**Context:** If cross-trace search becomes a real requirement, the options in order of cost: (1) maintain an inverted index from attribute key/value → trace_id on insert, which is cheap and probably enough for a local tool; (2) bring DataFusion in over persisted Parquet, which is already the Stage 2 plan for cross-trace/persisted queries anyway. Don't reach for the engine for the in-memory hot path — that direction was considered and reversed early on.
 
 **Effort:** M (if it happens)
 **Priority:** P3
@@ -30,14 +31,11 @@ the rule.
 version. Trigger to build: worth a second T1-style measurement pass against real data before
 shipping, not a guess at which keys are "rare enough."
 
-**Effort:** XS (human ~1h / CC ~15min), plus a validation pass
+**Effort:** XS (~1h), plus a validation pass
 **Priority:** P3
 **Depends on:** A second measurement pass, ideally against a project that isn't the OTel reference demo.
 
 ## Product (deferred from CEO review 2026-09-13)
-
-Full reasoning and the accepted-vs-deferred table live in
-`~/.gstack/projects/spanfall/ceo-plans/2026-09-13-tracescope-v1.md`.
 
 ### Watch mode with diff in the edit-run loop
 
@@ -53,7 +51,7 @@ of "the tool talks back."
 statement would need rewriting rather than amending. Revisit after the verification spike
 resolves the positioning question.
 
-**Effort:** L (human ~1 week / CC ~1 day)
+**Effort:** L (~1 week)
 **Priority:** P2
 **Depends on:** Trace diffing (already Stage 2) plus operation-identity matching across runs.
 
@@ -67,7 +65,7 @@ capability that does not exist in any tool today.
 **Context:** This is the linter with an exit code, so it becomes cheap once the linter
 lands in v1. Natural v1.1 headline feature.
 
-**Effort:** S (human ~3 days / CC ~4h)
+**Effort:** S (~3 days)
 **Priority:** P2
 **Depends on:** Instrumentation linter (accepted into v1 scope).
 
@@ -85,7 +83,7 @@ layout and truncation rules. Wants a deliberate yes, not a casual add-on. Note t
 the CEO review's platonic ideal is terminal-first, but v1 ships the linter into the web
 Receiver panel instead, so v1 does not yet deliver that felt experience.
 
-**Effort:** S-M (human ~3 days / CC ~4h)
+**Effort:** S-M (~3 days)
 **Priority:** P2
 **Depends on:** None technically; depends on a positioning decision.
 
@@ -102,7 +100,7 @@ genuinely 2026-shaped idea.
 OTel's own survey documents. Cheap to build on top of the existing query layer if it ever
 looks warranted.
 
-**Effort:** S (human ~3 days / CC ~4h)
+**Effort:** S (~3 days)
 **Priority:** P3
 **Depends on:** Query layer (v1).
 
@@ -124,7 +122,7 @@ first-run failure for a tool that binds two well-known ports.
 palettes live in the design-token block, so deferring it would have meant writing the tokens
 for one mode and rewriting them later. Two of four items now remain.
 
-**Effort:** S (human ~half day / CC ~1h) — was ~1 day before dark mode moved into v1
+**Effort:** S (~half day) — was ~1 day before dark mode moved into v1
 **Priority:** P3
 **Depends on:** None.
 
@@ -141,7 +139,7 @@ shareable-in-principle but awkward in practice.
 uncapped full export over a capped export plus this command). Trigger to build: the first time
 the size warning actually fires on a real trace someone wanted to share.
 
-**Effort:** S (human ~3h / CC ~30m)
+**Effort:** S (~3h)
 **Priority:** P2
 **Depends on:** Export (v1).
 
@@ -160,7 +158,7 @@ this plus an exit code** — that relationship is the useful part to remember. D
 v1 rather than built because an output format shipped before it has a consumer tends to be
 the wrong shape and then has to stay stable.
 
-**Effort:** XS (human ~1h / CC ~10m) once T7 exists
+**Effort:** XS (~1h) once T7 exists
 **Priority:** P3
 **Depends on:** T7 (`lint::Finding` type). Blocked on nothing else.
 
@@ -177,7 +175,7 @@ which threshold is wrong and by how much, which is information a config file can
 first real user reporting a rule as too noisy or too quiet on their app. CI assert mode
 (P2 above) probably wants this first, since a CI threshold has to be per-project.
 
-**Effort:** S (human ~1 day / CC ~2h)
+**Effort:** S (~1 day)
 **Priority:** P3
 **Depends on:** A real complaint. Do not build speculatively.
 
@@ -188,14 +186,14 @@ first real user reporting a rule as too noisy or too quiet on their app. CI asse
 
 **Why:** Not on the formal STOP list, but shares its risk profile: a guessed number could be wrong
 by roughly the same margin `--max-memory` itself warns about for bytes/span (~5x, attribute-density
-dependent). Flagged by both DX review voices (`/autoplan`, 2026-09-13) independently; neither
+dependent). Flagged by both DX review voices (review pass, 2026-09-13) independently; neither
 proposed a number, since neither had M1-quality measurement data to ground one.
 
 **Context:** Low urgency — the cap's own design surfaces an overrun as a visible Receiver warning,
 not a silent failure, so an imperfect first value is discoverable rather than dangerous. Natural to
 pin alongside `--max-memory` once M1 (spec 02) measures real bytes/span and key cardinality.
 
-**Effort:** XS (human ~15min / CC ~5min) once M1 data exists
+**Effort:** XS (~15min) once M1 data exists
 **Priority:** P3
 **Depends on:** M1 measurement (spec 02). Do not guess a number before then.
 
@@ -207,7 +205,7 @@ can immediately recreate it, consuming the space eviction just freed — repeat,
 eviction bookkeeping with no usable working set gained.
 
 **Why:** Flagged independently by both the CEO deep review and the Eng review's independent voice
-(`/autoplan`, 2026-09-13) with the same conclusion: not a v1 blocker, since M1's benchmark scenarios
+(review pass, 2026-09-13) with the same conclusion: not a v1 blocker, since M1's benchmark scenarios
 don't generate this load pattern, and the eviction counters already surfacing in the Receiver make
 it discoverable rather than silent if it happens.
 
@@ -221,14 +219,11 @@ in M1 that would validate the guard actually helps.
 
 ## Design (deferred from design review 2026-09-13)
 
-Full findings and the approved directions live in `docs/designs/tracescope-v1.md`, section
-"Design Review". Wireframes: `~/.gstack/projects/spanfall/designs/lint-tab-20260913/`.
+### Renumber the CEO task series (do before T0)
 
-### Renumber the task IDs in `docs/designs/tracescope-v1.md` (do before T0)
-
-**What:** the doc has two independent T-series for different work — the CEO half uses T16/T17/T18,
-the eng half uses T0–T16. There are two different T14s. Design tasks were numbered D1–D14
-specifically to avoid making it worse.
+**What:** the original planning notes used two independent T-series for different work — the CEO
+half used T16/T17/T18, the eng half uses T0–T16. There are two different T14s. Design tasks were
+numbered D1–D14 specifically to avoid making it worse.
 
 **Why:** `docs/prd.md`'s new "Interface surface (v1)" block now cites T14 as the task that re-costs
 the milestone table, so the collision is referenced from the architecture of record. It is the
@@ -238,7 +233,7 @@ first thing that confuses whoever picks up T14.
 CEO series its own prefix (C1–C3) and leave T0–T16 alone. Trigger: before T0, since T0 is the
 first task anyone actually reads the list to find.
 
-**Effort:** XS (human ~20min / CC ~5min)
+**Effort:** XS (~20min)
 
 ### Vim keybindings and a `?` shortcut overlay
 
@@ -254,7 +249,7 @@ things to get right: `?` must not fire while the filter box has focus, and the o
 surface that has to stay consistent with the bindings forever. Trigger to build: the first time
 someone presses `j` and nothing happens.
 
-**Effort:** XS (human ~2h / CC ~20min)
+**Effort:** XS (~2h)
 **Priority:** P3
 **Depends on:** arrow-key row navigation shipping first.
 
@@ -273,7 +268,7 @@ breakpoints do most of the design thinking, so this is largely applying them to 
 surfaces. Trigger to build: the first flag or tunnel that serves this UI to a device other than
 the host machine.
 
-**Effort:** M (human ~1 day / CC ~2h)
+**Effort:** M (~1 day)
 **Priority:** P3
 **Depends on:** the export narrow layout landing first, so there is one set of breakpoints.
 
@@ -291,7 +286,7 @@ consumer is speculative generality. Best seeded from a built screen rather than 
 `design extract --image` can generate it from an approved mockup. Trigger to build: a second
 visual surface, most likely the launch landing page if the spike clears.
 
-**Effort:** S (human ~2h / CC ~30min)
+**Effort:** S (~2h)
 **Priority:** P3
 **Depends on:** nothing. Better *after* a real screen exists than before.
 

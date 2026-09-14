@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-// ponytail: no size pinned by spec 01 §7 for the rejects ring, only that it "wraps oldest-first
+// note: no size pinned by spec 01 §7 for the rejects ring, only that it "wraps oldest-first
 // at capacity" and that wraparound is a tested behaviour. 100 is a reasonable Receiver-panel
 // window; bump if a real session needs more history.
 const REJECT_RING_CAPACITY: usize = 100;

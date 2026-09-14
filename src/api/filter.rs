@@ -345,7 +345,7 @@ mod tests {
         serde_json::from_slice(&bytes).unwrap()
     }
 
-    // ponytail: axum's Query<HashMap<_,_>> percent-decodes for us; tests only need spaces and
+    // note: axum's Query<HashMap<_,_>> percent-decodes for us; tests only need spaces and
     // quotes escaped, not a full encoder.
     fn urlencoding_lite(s: &str) -> String {
         s.replace(' ', "%20").replace('"', "%22").replace('>', "%3E").replace('<', "%3C")

@@ -28,7 +28,7 @@ embedded fonts. It is the one that travels.
 
 ## T10 — the export itself
 
-**Effort:** ~1.5d human / ~1h CC.
+**Effort:** ~1.5d.
 
 ```
 tracescope export <trace-id> [--force] [--redact]
@@ -75,7 +75,7 @@ points at nothing.
 
 ## T11 — XSS, and the exact escape
 
-**Effort:** ~2h human / ~20min CC. **This is the CRITICAL finding's test task.**
+**Effort:** ~2h. **This is the CRITICAL finding's test task.**
 
 ### The mechanism
 
@@ -117,7 +117,7 @@ Two canonical cases:
 
 ## T12 — CSP inside the exported file
 
-**Effort:** ~30min human / ~10min CC.
+**Effort:** ~30min.
 
 A `<meta>` CSP of `default-src 'none'` inside the exported file, as **defense in depth.**
 
@@ -131,7 +131,7 @@ network requests, loads no external scripts, and inlines its fonts.
 
 ## T13 — secret scan
 
-**Effort:** ~3h human / ~30min CC.
+**Effort:** ~3h.
 
 **Committed pattern list**, scanning attribute keys and value shapes:
 
@@ -160,7 +160,7 @@ warning names the keys and counts, so it is specific rather than generic.
 
 ## D10 — the provenance bar
 
-**Effort:** ~2h human / ~20min CC.
+**Effort:** ~2h.
 
 **The problem it solves:** an exported file looks *identical* to the live tool, but it is frozen and
 cannot filter. Someone handed the file will try to use it as the live tool and conclude the tool is
@@ -184,7 +184,7 @@ draw conclusions from a partial trace.
 
 ## D11 — narrow layout, exports only
 
-**Effort:** ~3h human / ~30min CC. `ui/src/export.css`.
+**Effort:** ~3h. `ui/src/export.css`.
 
 Below **~700px**, for the **exported viewer only.** The live UI is declared desktop-only.
 
