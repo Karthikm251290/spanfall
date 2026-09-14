@@ -7,7 +7,9 @@
 #![deny(clippy::indexing_slicing)]
 
 pub mod attributes;
+pub mod events;
 pub mod filter;
+pub mod lint;
 pub mod receiver;
 pub mod traces;
 
@@ -17,6 +19,7 @@ use axum::extract::FromRef;
 use axum::routing::get;
 use axum::Router;
 use parking_lot::RwLock;
+use tokio::sync::watch;
 
 use crate::ingest::receiver_state::ReceiverState;
 use crate::store::Store;
@@ -28,6 +31,10 @@ use crate::store::Store;
 pub struct ApiState {
     pub store: Arc<RwLock<Store>>,
     pub receiver: Arc<RwLock<ReceiverState>>,
+    /// Store-changed sequence number, bumped once per applied batch by the writer (§6's
+    /// `/api/events`). `watch::Receiver` is itself cheaply `Clone`, so no `Arc<RwLock<_>>`
+    /// wrapper is needed the way the other two fields need one.
+    pub events_seq: watch::Receiver<u64>,
 }
 
 impl FromRef<ApiState> for Arc<RwLock<Store>> {
@@ -42,9 +49,16 @@ impl FromRef<ApiState> for Arc<RwLock<ReceiverState>> {
     }
 }
 
+impl FromRef<ApiState> for watch::Receiver<u64> {
+    fn from_ref(state: &ApiState) -> Self {
+        state.events_seq.clone()
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn test_state(store: Store) -> ApiState {
-    ApiState { store: Arc::new(RwLock::new(store)), receiver: Arc::new(RwLock::new(ReceiverState::default())) }
+    let (_tx, events_seq) = watch::channel(0u64);
+    ApiState { store: Arc::new(RwLock::new(store)), receiver: Arc::new(RwLock::new(ReceiverState::default())), events_seq }
 }
 
 pub fn router(state: ApiState) -> Router {
@@ -54,5 +68,7 @@ pub fn router(state: ApiState) -> Router {
         .route("/api/traces/{id}/spans/{idx}/attributes", get(attributes::get_attributes))
         .route("/api/traces/{id}/filter", get(filter::get_filter))
         .route("/api/receiver", get(receiver::get_receiver))
+        .route("/api/events", get(events::get_events))
+        .route("/api/lint", get(lint::get_lint))
         .with_state(state)
 }

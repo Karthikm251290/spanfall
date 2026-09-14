@@ -84,7 +84,17 @@ impl Store {
         self.key_interner.lookup(key)
     }
 
-    pub fn insert_span(
+    pub fn insert_span(&mut self, trace_id: TraceId, span: NewSpan, now_unix_nano: u64) -> StoreInsertOutcome {
+        let outcome = self.insert_span_no_evict(trace_id, span, now_unix_nano);
+        self.evict_over_budget();
+        outcome
+    }
+
+    /// Same effect as `insert_span` but skips the eviction sweep -- for a batch caller (the
+    /// writer) applying many spans back to back, evicting after every single one is an O(traces)
+    /// scan repeated for no reason; call `evict_over_budget()` once after the whole batch lands
+    /// instead (§5).
+    pub fn insert_span_no_evict(
         &mut self,
         trace_id: TraceId,
         mut span: NewSpan,
@@ -118,8 +128,6 @@ impl Store {
         }
         self.counters.attribute_key_cap_hit = self.key_interner.cap_hit_count();
 
-        self.evict_over_budget();
-
         StoreInsertOutcome { local_idx, is_duplicate, resurrected }
     }
 
@@ -140,7 +148,7 @@ impl Store {
     /// Evicts the trace with the oldest `last_activity` until under budget. A trace still
     /// receiving spans has a recent `last_activity` and so is never the oldest — no separate
     /// "in use" check needed (§5).
-    fn evict_over_budget(&mut self) {
+    pub fn evict_over_budget(&mut self) {
         while self.total_approx_bytes() > self.max_memory_bytes && self.traces.len() > 1 {
             let oldest = self
                 .traces
@@ -231,6 +239,25 @@ mod tests {
 
         assert!(outcome.is_duplicate);
         assert_eq!(store.counters.duplicate_span, 1);
+    }
+
+    #[test]
+    fn insert_span_no_evict_skips_eviction_until_evict_over_budget_is_called() {
+        // same 140-byte budget as the eviction test above: room for ~2 traces, not 3.
+        let mut store = Store::new(140);
+
+        store.insert_span_no_evict(tid(1), span(1, "a"), 0);
+        store.insert_span_no_evict(tid(2), span(2, "b"), 1);
+        store.insert_span_no_evict(tid(3), span(3, "c"), 2);
+
+        // over budget, but eviction never ran -- all three traces are still present.
+        assert_eq!(store.trace_count(), 3);
+        assert_eq!(store.counters.evicted_traces, 0);
+
+        store.evict_over_budget();
+
+        assert_eq!(store.trace_count(), 2);
+        assert_eq!(store.counters.evicted_traces, 1);
     }
 
     #[test]

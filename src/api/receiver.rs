@@ -47,10 +47,7 @@ mod tests {
     use crate::store::types::{SpanId, TraceId};
 
     fn empty_state() -> super::super::ApiState {
-        super::super::ApiState {
-            store: Arc::new(RwLock::new(Store::new(10_000_000))),
-            receiver: Arc::new(RwLock::new(ReceiverState::default())),
-        }
+        super::super::test_state(Store::new(10_000_000))
     }
 
     #[tokio::test]

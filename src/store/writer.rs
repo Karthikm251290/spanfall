@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use parking_lot::RwLock;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
 use super::Store;
@@ -14,13 +14,21 @@ use crate::ingest::convert::SpanBatch;
 /// appending are serial and cheap, so they belong behind the channel rather than in the
 /// handlers. `capacity` bounds the channel -- a full channel is what makes `send().await` block
 /// and eventually time out at the handler (backpressure), never a silent drop.
-pub fn spawn_writer(store: Arc<RwLock<Store>>, capacity: usize) -> (mpsc::Sender<SpanBatch>, JoinHandle<()>) {
+///
+/// The returned `watch::Receiver<u64>` is the store-changed sequence number for `/api/events`
+/// (§6) -- bumped once per applied batch, never per span, since the SSE stream is
+/// invalidation-only and doesn't care how many spans made up the change.
+pub fn spawn_writer(
+    store: Arc<RwLock<Store>>,
+    capacity: usize,
+) -> (mpsc::Sender<SpanBatch>, watch::Receiver<u64>, JoinHandle<()>) {
     let (tx, rx) = mpsc::channel(capacity);
-    let handle = tokio::spawn(run(store, rx));
-    (tx, handle)
+    let (seq_tx, seq_rx) = watch::channel(0u64);
+    let handle = tokio::spawn(run(store, rx, seq_tx));
+    (tx, seq_rx, handle)
 }
 
-async fn run(store: Arc<RwLock<Store>>, mut rx: mpsc::Receiver<SpanBatch>) {
+async fn run(store: Arc<RwLock<Store>>, mut rx: mpsc::Receiver<SpanBatch>, seq_tx: watch::Sender<u64>) {
     while let Some(batch) = rx.recv().await {
         let now = now_unix_nano();
         let malformed = batch.malformed_span_count as u64;
@@ -29,9 +37,13 @@ async fn run(store: Arc<RwLock<Store>>, mut rx: mpsc::Receiver<SpanBatch>) {
         // never across a decode or a send.
         let mut guard = store.write();
         for (trace_id, span) in batch.spans {
-            guard.insert_span(trace_id, span, now);
+            guard.insert_span_no_evict(trace_id, span, now);
         }
         guard.counters.malformed_span += malformed;
+        guard.evict_over_budget();
+        drop(guard);
+
+        seq_tx.send_modify(|seq| *seq += 1);
     }
 }
 
@@ -72,7 +84,7 @@ mod tests {
     #[tokio::test]
     async fn writer_applies_batches_and_updates_counters() {
         let store = Arc::new(RwLock::new(Store::new(10_000_000)));
-        let (tx, handle) = spawn_writer(store.clone(), 8);
+        let (tx, seq_rx, handle) = spawn_writer(store.clone(), 8);
 
         tx.send(batch(vec![(TraceId([1; 16]), span(1))], 0)).await.unwrap();
         tx.send(batch(vec![(TraceId([1; 16]), span(2))], 2)).await.unwrap();
@@ -82,6 +94,9 @@ mod tests {
         // -- no arbitrary sleep needed.
         drop(tx);
         handle.await.unwrap();
+
+        // two applied batches -> seq bumped twice, once per batch, never per span.
+        assert_eq!(*seq_rx.borrow(), 2);
 
         let guard = store.read();
         assert_eq!(guard.trace(TraceId([1; 16])).unwrap().span_count(), 2);
