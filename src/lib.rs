@@ -1,6 +1,7 @@
 pub mod api;
 pub mod cli;
 pub mod client;
+pub mod demo;
 pub mod dump;
 pub mod ingest;
 pub mod port_conflict;

@@ -21,6 +21,10 @@ pub struct Cli {
     /// Requires an already-running instance -- connects to its Read API on :5317.
     #[arg(long)]
     pub dump: bool,
+
+    /// Start pre-seeded with a curated fake trace set instead of waiting for real ingest.
+    #[arg(long)]
+    pub demo: bool,
 }
 
 #[derive(Subcommand)]

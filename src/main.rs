@@ -7,6 +7,7 @@ use parking_lot::RwLock;
 use spanfall::api;
 use spanfall::api::ApiState;
 use spanfall::cli::{Cli, Command};
+use spanfall::demo;
 use spanfall::dump;
 use spanfall::ingest::handler::IngestState;
 use spanfall::ingest::http;
@@ -29,6 +30,13 @@ async fn main() {
         eprintln!("{name}: --dump does not take a subcommand (did you mean `{name} list`?)");
         std::process::exit(2);
     }
+    if cli.demo && (cli.dump || cli.command.is_some()) {
+        eprintln!(
+            "{}: --demo seeds a new server, it doesn't query one -- drop --dump/list",
+            env!("CARGO_BIN_NAME")
+        );
+        std::process::exit(2);
+    }
 
     if cli.dump {
         exit_on_err(dump::print_dump(API_ADDR));
@@ -39,7 +47,7 @@ async fn main() {
         return;
     }
 
-    run_server(cli.max_memory, Duration::from_secs(cli.ingest_timeout)).await;
+    run_server(cli.max_memory, Duration::from_secs(cli.ingest_timeout), cli.demo).await;
 }
 
 fn exit_on_err(result: Result<(), String>) {
@@ -49,7 +57,7 @@ fn exit_on_err(result: Result<(), String>) {
     }
 }
 
-async fn run_server(max_memory_bytes: usize, ingest_timeout: Duration) {
+async fn run_server(max_memory_bytes: usize, ingest_timeout: Duration, seed_demo: bool) {
     let grpc_addr: SocketAddr = GRPC_ADDR.parse().expect("valid hardcoded address");
     let http_addr: SocketAddr = HTTP_ADDR.parse().expect("valid hardcoded address");
     let api_addr: SocketAddr = API_ADDR.parse().expect("valid hardcoded address");
@@ -62,8 +70,15 @@ async fn run_server(max_memory_bytes: usize, ingest_timeout: Duration) {
 
     println!("Listening on http://localhost:5317");
     println!("OTLP gRPC: 4317   OTLP HTTP: 4318");
+    if seed_demo {
+        println!("--demo: pre-seeded with a curated fake trace set");
+    }
 
-    let store = Arc::new(RwLock::new(Store::new(max_memory_bytes)));
+    let mut store = Store::new(max_memory_bytes);
+    if seed_demo {
+        demo::seed(&mut store);
+    }
+    let store = Arc::new(RwLock::new(store));
     let (tx, events_seq, _writer_handle) = spawn_writer(store.clone(), 1024);
     let receiver = Arc::new(RwLock::new(ReceiverState::default()));
     let state = IngestState::new(tx, receiver.clone(), ingest_timeout);
