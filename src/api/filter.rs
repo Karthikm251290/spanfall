@@ -298,7 +298,7 @@ mod tests {
     use crate::store::trace::NewSpan;
     use crate::store::types::SpanId;
 
-    fn store_with_two_spans() -> Arc<RwLock<Store>> {
+    fn store_with_two_spans() -> super::super::ApiState {
         let mut store = Store::new(10_000_000);
         store.insert_span(
             TraceId([1; 16]),
@@ -332,11 +332,11 @@ mod tests {
             },
             0,
         );
-        Arc::new(RwLock::new(store))
+        super::super::test_state(store)
     }
 
-    async fn filter(store: Arc<RwLock<Store>>, q: &str) -> serde_json::Value {
-        let app = super::super::router(store);
+    async fn filter(state: super::super::ApiState, q: &str) -> serde_json::Value {
+        let app = super::super::router(state);
         let hex = TraceId([1; 16]).to_hex();
         let uri = format!("/api/traces/{hex}/filter?q={}", urlencoding_lite(q));
         let response = app.oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap()).await.unwrap();
@@ -423,7 +423,7 @@ mod tests {
             },
             0,
         );
-        let body = filter(Arc::new(RwLock::new(store)), "cart-item").await;
+        let body = filter(super::super::test_state(store), "cart-item").await;
         assert_eq!(body["indices"], serde_json::json!([0]));
         assert_eq!(body["dropped_terms"], serde_json::json!([]));
     }

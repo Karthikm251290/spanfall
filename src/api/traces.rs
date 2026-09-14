@@ -150,7 +150,7 @@ mod tests {
     use crate::store::trace::NewSpan;
     use crate::store::types::SpanId;
 
-    fn store_with_one_trace() -> Arc<RwLock<Store>> {
+    fn store_with_one_trace() -> super::super::ApiState {
         let mut store = Store::new(10_000_000);
         let mut span = NewSpan {
             span_id: SpanId([2; 8]),
@@ -179,7 +179,7 @@ mod tests {
         };
         store.insert_span(TraceId([1; 16]), span, 0);
 
-        Arc::new(RwLock::new(store))
+        super::super::test_state(store)
     }
 
     async fn json_body(response: Response) -> serde_json::Value {

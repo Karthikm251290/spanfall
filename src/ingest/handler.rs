@@ -7,7 +7,7 @@ use parking_lot::RwLock;
 use tokio::sync::mpsc;
 
 use super::convert::{convert, RejectReason, SpanBatch};
-use super::receiver_state::RejectLog;
+use super::receiver_state::{ReceiverState, Transport};
 
 /// Transport-agnostic outcome of the shared accept-or-reject decision (§2 — "so a wrong-port
 /// test and a right-port test can share expectations"). Each transport maps this to its own wire
@@ -29,19 +29,20 @@ pub enum IngestError {
 #[derive(Clone)]
 pub struct IngestState {
     tx: mpsc::Sender<SpanBatch>,
-    rejects: Arc<RwLock<RejectLog>>,
+    receiver: Arc<RwLock<ReceiverState>>,
     ingest_timeout: Duration,
 }
 
 impl IngestState {
-    pub fn new(tx: mpsc::Sender<SpanBatch>, rejects: Arc<RwLock<RejectLog>>, ingest_timeout: Duration) -> Self {
-        Self { tx, rejects, ingest_timeout }
+    pub fn new(tx: mpsc::Sender<SpanBatch>, receiver: Arc<RwLock<ReceiverState>>, ingest_timeout: Duration) -> Self {
+        Self { tx, receiver, ingest_timeout }
     }
 
     /// Runs the shared accept-or-reject decision for an already-decoded request: `convert()`
     /// behind a panic boundary, envelope rejects recorded to the Receiver's ring buffer, then an
-    /// accepted batch handed to the writer with `--ingest-timeout` backpressure.
-    pub async fn accept(&self, request: ExportTraceServiceRequest) -> Result<(), IngestError> {
+    /// accepted batch handed to the writer with `--ingest-timeout` backpressure. `transport`
+    /// tags a successful arrival for the Receiver's per-protocol counts (§7).
+    pub async fn accept(&self, request: ExportTraceServiceRequest, transport: Transport) -> Result<(), IngestError> {
         let batch = match catch_unwind(AssertUnwindSafe(|| convert(request))) {
             Ok(Ok(batch)) => batch,
             Ok(Err(reason)) => {
@@ -54,15 +55,19 @@ impl IngestState {
             }
         };
 
+        let span_count = batch.spans.len() as u64;
         match tokio::time::timeout(self.ingest_timeout, self.tx.send(batch)).await {
-            Ok(Ok(())) => Ok(()),
+            Ok(Ok(())) => {
+                self.receiver.write().arrivals.record(transport, span_count);
+                Ok(())
+            }
             Ok(Err(_)) => Err(IngestError::WriterGone),
             Err(_) => Err(IngestError::Backpressure),
         }
     }
 
     fn record_reject(&self, reason: String) {
-        self.rejects.write().push(reason, now_unix_nano());
+        self.receiver.write().rejects.push(reason, now_unix_nano());
     }
 }
 
@@ -83,8 +88,8 @@ mod tests {
 
     fn state_with_capacity(capacity: usize, ingest_timeout: Duration) -> (IngestState, mpsc::Receiver<SpanBatch>) {
         let (tx, rx) = mpsc::channel(capacity);
-        let rejects = Arc::new(RwLock::new(RejectLog::default()));
-        (IngestState::new(tx, rejects, ingest_timeout), rx)
+        let receiver = Arc::new(RwLock::new(ReceiverState::default()));
+        (IngestState::new(tx, receiver, ingest_timeout), rx)
     }
 
     fn span_request() -> ExportTraceServiceRequest {
@@ -122,19 +127,33 @@ mod tests {
     async fn accepted_batch_reaches_the_writer_channel() {
         let (state, mut rx) = state_with_capacity(8, Duration::from_secs(1));
 
-        state.accept(span_request()).await.unwrap();
+        state.accept(span_request(), Transport::GrpcV4317).await.unwrap();
 
         let batch = rx.recv().await.unwrap();
         assert_eq!(batch.spans.len(), 1);
     }
 
     #[tokio::test]
+    async fn accepted_batch_bumps_the_arrival_count_for_its_transport() {
+        let (state, _rx) = state_with_capacity(8, Duration::from_secs(1));
+
+        state.accept(span_request(), Transport::HttpJsonV4318).await.unwrap();
+
+        let receiver = state.receiver.read();
+        assert_eq!(receiver.arrivals.http_json_v4318, 1);
+        assert_eq!(receiver.arrivals.grpc_v4317, 0);
+    }
+
+    #[tokio::test]
     async fn empty_payload_is_rejected_and_recorded() {
         let (state, _rx) = state_with_capacity(8, Duration::from_secs(1));
 
-        let err = state.accept(ExportTraceServiceRequest { resource_spans: vec![] }).await.unwrap_err();
+        let err = state
+            .accept(ExportTraceServiceRequest { resource_spans: vec![] }, Transport::GrpcV4317)
+            .await
+            .unwrap_err();
         assert!(matches!(err, IngestError::Reject(RejectReason::EmptyPayload)));
-        assert_eq!(state.rejects.read().len(), 1);
+        assert_eq!(state.receiver.read().rejects.len(), 1);
     }
 
     #[tokio::test]
@@ -142,9 +161,9 @@ mod tests {
         // capacity 1: the first send fills the channel; nothing ever drains it, so the second
         // blocks until the timeout fires.
         let (state, _rx) = state_with_capacity(1, Duration::from_millis(10));
-        state.accept(span_request()).await.unwrap();
+        state.accept(span_request(), Transport::GrpcV4317).await.unwrap();
 
-        let err = state.accept(span_request()).await.unwrap_err();
+        let err = state.accept(span_request(), Transport::GrpcV4317).await.unwrap_err();
         assert!(matches!(err, IngestError::Backpressure));
     }
 }

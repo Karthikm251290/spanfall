@@ -7,10 +7,38 @@ const REJECT_RING_CAPACITY: usize = 100;
 
 /// One envelope-level reject (§2's `EmptyPayload` / `DecodeError`), recorded for the Receiver
 /// panel (§7) — "must be reported, not shown as a silent blank screen".
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct RejectRecord {
     pub reason: String,
     pub at_unix_nano: u64,
+}
+
+/// Which listener accepted a batch (§3). Distinct from `ContentType` -- gRPC never goes through
+/// `decode()` at all, tonic decodes it before the handler runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Transport {
+    GrpcV4317,
+    HttpProtobufV4318,
+    HttpJsonV4318,
+}
+
+/// Per-protocol span arrival counts (§7) -- "412 spans from checkout over HTTP/protobuf" is the
+/// positive-signal example the Receiver panel leads with.
+#[derive(Debug, Default, Clone, Copy, serde::Serialize)]
+pub struct ArrivalCounts {
+    pub grpc_v4317: u64,
+    pub http_protobuf_v4318: u64,
+    pub http_json_v4318: u64,
+}
+
+impl ArrivalCounts {
+    pub fn record(&mut self, transport: Transport, span_count: u64) {
+        match transport {
+            Transport::GrpcV4317 => self.grpc_v4317 += span_count,
+            Transport::HttpProtobufV4318 => self.http_protobuf_v4318 += span_count,
+            Transport::HttpJsonV4318 => self.http_json_v4318 += span_count,
+        }
+    }
 }
 
 /// The rejects half of Receiver data (§7). Lives in `src/ingest/` per the doc comment on
@@ -41,6 +69,15 @@ impl RejectLog {
     }
 }
 
+/// The full ingest-layer half of Receiver data (§7): rejects plus arrival counts. Store-level
+/// counters (`duplicate_span`, eviction, ...) live in `Store::counters` -- see the doc comment on
+/// `Counters` for why the split.
+#[derive(Debug, Default)]
+pub struct ReceiverState {
+    pub rejects: RejectLog,
+    pub arrivals: ArrivalCounts,
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
@@ -67,5 +104,17 @@ mod tests {
         let first = log.recent().next().unwrap();
         // the oldest 3 were pushed out; the ring now starts at reject-3
         assert_eq!(first.reason, "reject-3");
+    }
+
+    #[test]
+    fn arrival_counts_accumulate_per_transport_independently() {
+        let mut counts = ArrivalCounts::default();
+        counts.record(Transport::GrpcV4317, 5);
+        counts.record(Transport::HttpProtobufV4318, 2);
+        counts.record(Transport::GrpcV4317, 3);
+
+        assert_eq!(counts.grpc_v4317, 8);
+        assert_eq!(counts.http_protobuf_v4318, 2);
+        assert_eq!(counts.http_json_v4318, 0);
     }
 }

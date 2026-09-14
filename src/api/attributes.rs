@@ -61,7 +61,7 @@ mod tests {
     use crate::store::trace::NewSpan;
     use crate::store::types::SpanId;
 
-    fn store_with_one_span() -> Arc<RwLock<Store>> {
+    fn store_with_one_span() -> super::super::ApiState {
         let mut store = Store::new(10_000_000);
         let span = NewSpan {
             span_id: SpanId([2; 8]),
@@ -79,7 +79,7 @@ mod tests {
             ],
         };
         store.insert_span(TraceId([1; 16]), span, 0);
-        Arc::new(RwLock::new(store))
+        super::super::test_state(store)
     }
 
     #[tokio::test]

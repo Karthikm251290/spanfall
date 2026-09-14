@@ -5,6 +5,7 @@ use tonic::{Request, Response, Status};
 
 use super::convert::RejectReason;
 use super::handler::{IngestError, IngestState};
+use super::receiver_state::Transport;
 
 /// OTLP/gRPC on :4317 (§3). Decoding happens in tonic itself before `export()` runs; this handler
 /// only owns the shared accept-or-reject decision and its wire-error mapping.
@@ -24,7 +25,7 @@ impl TraceService for GrpcTraceService {
         &self,
         request: Request<ExportTraceServiceRequest>,
     ) -> Result<Response<ExportTraceServiceResponse>, Status> {
-        match self.state.accept(request.into_inner()).await {
+        match self.state.accept(request.into_inner(), Transport::GrpcV4317).await {
             Ok(()) => Ok(Response::new(ExportTraceServiceResponse::default())),
             // EmptyPayload (§2) is a named, expected condition, not a wire failure — the
             // exporter still gets a normal OK; the reject surfaces via the Receiver ring buffer.

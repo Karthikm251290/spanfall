@@ -7,7 +7,7 @@ use parking_lot::RwLock;
 use spanfall::ingest::grpc::GrpcTraceService;
 use spanfall::ingest::handler::IngestState;
 use spanfall::ingest::http;
-use spanfall::ingest::receiver_state::RejectLog;
+use spanfall::ingest::receiver_state::ReceiverState;
 use spanfall::store::writer::spawn_writer;
 use spanfall::store::Store;
 
@@ -27,8 +27,8 @@ async fn main() {
 
     let store = Arc::new(RwLock::new(Store::new(MAX_MEMORY_BYTES)));
     let (tx, _writer_handle) = spawn_writer(store, 1024);
-    let rejects = Arc::new(RwLock::new(RejectLog::default()));
-    let state = IngestState::new(tx, rejects, INGEST_TIMEOUT);
+    let receiver = Arc::new(RwLock::new(ReceiverState::default()));
+    let state = IngestState::new(tx, receiver, INGEST_TIMEOUT);
 
     let grpc_addr: SocketAddr = GRPC_ADDR.parse().expect("valid hardcoded address");
     let http_addr: SocketAddr = HTTP_ADDR.parse().expect("valid hardcoded address");

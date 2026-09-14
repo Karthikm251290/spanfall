@@ -8,6 +8,7 @@ use axum::Router;
 
 use super::convert::{decode, ContentType, RejectReason};
 use super::handler::{IngestError, IngestState};
+use super::receiver_state::Transport;
 
 /// OTLP/HTTP on :4318, both protobuf and JSON bodies (§3). Only this transport calls `decode()`
 /// — gRPC arrives pre-decoded via tonic.
@@ -16,11 +17,11 @@ pub fn router(state: IngestState) -> Router {
 }
 
 async fn export(State(state): State<IngestState>, headers: axum::http::HeaderMap, body: Bytes) -> Response {
-    let content_type = match headers.get(CONTENT_TYPE).and_then(|v| v.to_str().ok()) {
-        Some(ct) if ct.starts_with("application/json") => ContentType::Json,
+    let (content_type, transport) = match headers.get(CONTENT_TYPE).and_then(|v| v.to_str().ok()) {
+        Some(ct) if ct.starts_with("application/json") => (ContentType::Json, Transport::HttpJsonV4318),
         // OTLP/HTTP protobuf exporters send application/x-protobuf; default to protobuf for any
         // other/missing content-type rather than reject on that alone.
-        _ => ContentType::Protobuf,
+        _ => (ContentType::Protobuf, Transport::HttpProtobufV4318),
     };
 
     let request = match decode(&body, content_type) {
@@ -28,7 +29,7 @@ async fn export(State(state): State<IngestState>, headers: axum::http::HeaderMap
         Err(reason) => return (StatusCode::BAD_REQUEST, format!("{reason:?}")).into_response(),
     };
 
-    match state.accept(request).await {
+    match state.accept(request, transport).await {
         Ok(()) => StatusCode::OK.into_response(),
         // EmptyPayload (§2) is a named, expected condition, not a wire failure.
         Err(IngestError::Reject(RejectReason::EmptyPayload)) => StatusCode::OK.into_response(),
@@ -55,14 +56,14 @@ mod tests {
     use tower::ServiceExt;
 
     use super::*;
-    use crate::ingest::receiver_state::RejectLog;
+    use crate::ingest::receiver_state::ReceiverState;
     use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
     use opentelemetry_proto::tonic::trace::v1::{ResourceSpans, ScopeSpans, Span, Status as PbStatus};
 
     fn test_router(capacity: usize) -> (Router, mpsc::Receiver<crate::ingest::convert::SpanBatch>) {
         let (tx, rx) = mpsc::channel(capacity);
-        let rejects = Arc::new(RwLock::new(RejectLog::default()));
-        let state = IngestState::new(tx, rejects, Duration::from_secs(1));
+        let receiver = Arc::new(RwLock::new(ReceiverState::default()));
+        let state = IngestState::new(tx, receiver, Duration::from_secs(1));
         (router(state), rx)
     }
 

@@ -2,7 +2,7 @@
 ///
 /// This is the store-layer slice only: per-endpoint/protocol arrival counts and the rejects ring
 /// buffer are ingest-layer concerns and land with `src/ingest/`.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, serde::Serialize)]
 pub struct Counters {
     pub duplicate_span: u64,
     pub attribute_key_cap_hit: u64,
