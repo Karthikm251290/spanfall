@@ -1,23 +1,19 @@
 #!/usr/bin/env bash
-# Spec 01 acceptance #7, PARTIAL. `cargo test` always builds the `test` profile, which is
+# Spec 01 acceptance #7. `cargo test` always builds the `test` profile, which is
 # `panic = "unwind"` regardless of what [profile.release] says -- so a plain test suite would stay
 # green even if someone later set `panic = "abort"` on release. This runs the actual `--release`
-# binary and checks it returns typed 400s (not a crash) for the two malformed-input cases
-# acceptance #7 names.
-#
-# What this does NOT prove: both inputs fail at decode(), before convert()'s catch_unwind boundary
-# (§2 hardening #3) is ever reached, so they'd return the same 400 and the process would survive
-# identically under panic = "abort" -- this script would stay green through that exact regression.
-# convert() has no reachable panic today (the ingest module's deny-lints rule out unwrap/expect/
-# panic/indexing), so there's no real payload that exercises catch_unwind itself; see
-# ingest::handler::tests::catch_conversion_panic_maps_a_panic_to_err_instead_of_unwinding for that
-# boundary's unit-level proof instead. Closing this gap for real needs a feature-gated panic
-# injection point in convert(), built only for this script -- not done, ponytail: skip until a
-# reachable panic path actually exists to guard.
+# binary, built with `--features panic-injection` (see Cargo.toml and ingest/convert.rs), and
+# checks:
+#   - the two malformed-input cases acceptance #7 names return typed 400s (decode()-level rejects)
+#   - a span named `__spanfall_panic_injection__` reaches convert()'s catch_unwind boundary (§2
+#     hardening #3) and comes back as a 500 (IngestError::ConversionPanicked), not a dead process
+# The last check is the one that actually discriminates panic = "unwind" from "abort": flip
+# [profile.release] to abort and re-run this script -- it should fail (process dies, curl gets a
+# connection error instead of 500) -- then revert.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-cargo build --release --quiet
+cargo build --release --quiet --features panic-injection
 
 BIN="target/release/spanfall"
 ADDR="127.0.0.1:4318"
@@ -52,4 +48,17 @@ if ! kill -0 "$PID" 2>/dev/null; then
     exit 1
 fi
 
-echo "OK: release binary returned typed 400s for both malformed inputs and stayed alive"
+status=$(curl -s -o /dev/null -w '%{http_code}' -m 3 -X POST "http://$ADDR/v1/traces" \
+    -H 'Content-Type: application/json' \
+    -d '{"resourceSpans":[{"scopeSpans":[{"spans":[{"traceId":"01010101010101010101010101010101","spanId":"0202020202020202","name":"__spanfall_panic_injection__","startTimeUnixNano":"1","endTimeUnixNano":"2","status":{"code":0}}]}]}]}')
+if [ "$status" != "500" ]; then
+    echo "FAIL: panic-injection span returned $status, expected 500 (ConversionPanicked)"
+    exit 1
+fi
+
+if ! kill -0 "$PID" 2>/dev/null; then
+    echo "FAIL: release binary did not survive catch_unwind catching the injected panic"
+    exit 1
+fi
+
+echo "OK: release binary returned typed rejects, survived an injected convert() panic via catch_unwind"

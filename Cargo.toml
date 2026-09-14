@@ -5,6 +5,13 @@ edition = "2024"
 license = "Apache-2.0"
 description = "A local-first OTLP trace viewer, linter, and exporter."
 
+[features]
+# Only for scripts/release-panic-smoke.sh: gates a reachable panic() in convert() behind a
+# sentinel span name, so the smoke script can actually exercise the catch_unwind boundary against
+# a real --release binary instead of asserting on inputs that never reach it. Absent from a normal
+# build.
+panic-injection = []
+
 [dependencies]
 axum = "0.8.9"
 clap = { version = "4.6.6", features = ["derive"] }

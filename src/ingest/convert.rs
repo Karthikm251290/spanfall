@@ -56,6 +56,16 @@ pub fn convert(request: ExportTraceServiceRequest) -> Result<SpanBatch, RejectRe
             for pb_span in &scope_spans.spans {
                 saw_any_span = true;
 
+                // Only under `--features panic-injection` (scripts/release-panic-smoke.sh): a
+                // reachable panic so the smoke script can exercise catch_unwind (§2 hardening
+                // #3) against a real --release binary. convert() has no other panic path --
+                // the ingest module's deny-lints rule out unwrap/expect/panic/indexing.
+                #[cfg(feature = "panic-injection")]
+                #[allow(clippy::panic)]
+                if pb_span.name == "__spanfall_panic_injection__" {
+                    panic!("injected by --features panic-injection");
+                }
+
                 let Some(trace_id) = trace_id_of(&pb_span.trace_id) else {
                     malformed_span_count += 1;
                     continue;
