@@ -26,7 +26,8 @@ impl TraceId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SpanId(pub [u8; 8]);
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(untagged)]
 pub enum AttrValue {
     Str(String),
     Int(i64),

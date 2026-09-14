@@ -73,6 +73,10 @@ impl Store {
         self.service_interner.get(id)
     }
 
+    pub fn attribute_key(&self, id: u32) -> &str {
+        self.key_interner.get(id)
+    }
+
     pub fn insert_span(
         &mut self,
         trace_id: TraceId,

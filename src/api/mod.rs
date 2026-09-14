@@ -6,6 +6,7 @@
 #![deny(clippy::panic)]
 #![deny(clippy::indexing_slicing)]
 
+pub mod attributes;
 pub mod traces;
 
 use std::sync::Arc;
@@ -20,5 +21,6 @@ pub fn router(store: Arc<RwLock<Store>>) -> Router {
     Router::new()
         .route("/api/traces", get(traces::list_traces))
         .route("/api/traces/{id}", get(traces::get_trace))
+        .route("/api/traces/{id}/spans/{idx}/attributes", get(attributes::get_attributes))
         .with_state(store)
 }
