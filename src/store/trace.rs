@@ -3,6 +3,7 @@ use rustc_hash::FxHashMap;
 use super::interner::Interner;
 use super::types::{AttrValue, SpanId, TraceId};
 
+#[derive(Debug)]
 pub struct NewSpan {
     pub span_id: SpanId,
     pub parent_span_id: Option<SpanId>,
