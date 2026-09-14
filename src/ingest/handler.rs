@@ -43,13 +43,13 @@ impl IngestState {
     /// accepted batch handed to the writer with `--ingest-timeout` backpressure. `transport`
     /// tags a successful arrival for the Receiver's per-protocol counts (§7).
     pub async fn accept(&self, request: ExportTraceServiceRequest, transport: Transport) -> Result<(), IngestError> {
-        let batch = match catch_unwind(AssertUnwindSafe(|| convert(request))) {
+        let batch = match catch_conversion_panic(|| convert(request)) {
             Ok(Ok(batch)) => batch,
             Ok(Err(reason)) => {
                 self.record_reject(format!("{reason:?}"));
                 return Err(IngestError::Reject(reason));
             }
-            Err(_) => {
+            Err(()) => {
                 self.record_reject("panic during conversion".to_string());
                 return Err(IngestError::ConversionPanicked);
             }
@@ -71,6 +71,16 @@ impl IngestState {
     }
 }
 
+/// §2 hardening #3's `catch_unwind` boundary, pulled out as a named seam so a test can hand it a
+/// closure that panics on purpose -- crafting a proto payload that naturally panics `convert()`
+/// would be a rabbit hole, and isn't what this boundary is actually guarding.
+fn catch_conversion_panic<F, R>(f: F) -> Result<R, ()>
+where
+    F: FnOnce() -> R,
+{
+    catch_unwind(AssertUnwindSafe(f)).map_err(|_| ())
+}
+
 fn now_unix_nano() -> u64 {
     // ponytail: same pre-1970-clock fallback as store/writer.rs's now_unix_nano — cannot happen
     // on real hardware this tool runs on.
@@ -81,7 +91,7 @@ fn now_unix_nano() -> u64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[allow(clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use opentelemetry_proto::tonic::trace::v1::{ResourceSpans, ScopeSpans, Span, Status};
@@ -154,6 +164,22 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, IngestError::Reject(RejectReason::EmptyPayload)));
         assert_eq!(state.receiver.read().rejects.len(), 1);
+    }
+
+    #[test]
+    fn catch_conversion_panic_passes_through_a_normal_result() {
+        assert_eq!(catch_conversion_panic(|| 42), Ok(42));
+    }
+
+    #[test]
+    fn catch_conversion_panic_maps_a_panic_to_err_instead_of_unwinding() {
+        // suppress the default panic-hook println for this expected, intentional panic
+        let previous_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let result = catch_conversion_panic(|| -> () { panic!("boom") });
+        std::panic::set_hook(previous_hook);
+
+        assert_eq!(result, Err(()));
     }
 
     #[tokio::test]
