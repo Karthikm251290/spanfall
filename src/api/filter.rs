@@ -93,12 +93,22 @@ impl Term {
                     None => false,
                 }
             }
-            Term::Attr(op, Some(key_id), raw) => trace
-                .attribute_keys(idx)
-                .iter()
-                .zip(trace.attributes(idx).iter())
-                .filter(|(k, _)| *k == key_id)
-                .any(|(_, v)| attr_matches(*op, v, raw)),
+            Term::Attr(op, Some(key_id), raw) => {
+                let mut values = trace
+                    .attribute_keys(idx)
+                    .iter()
+                    .zip(trace.attributes(idx).iter())
+                    .filter(|(k, _)| *k == key_id)
+                    .map(|(_, v)| v)
+                    .peekable();
+                if values.peek().is_none() {
+                    // span never carries this key -- symmetric with Term::Service's "no service
+                    // name" case: absence trivially satisfies "!=", never "=" or an ordering op.
+                    *op == Op::Ne
+                } else {
+                    values.any(|v| attr_matches(*op, v, raw))
+                }
+            }
             Term::Attr(_, None, _) => false,
             Term::Substring(needle) => {
                 trace.name(idx).contains(needle.as_str())
@@ -231,7 +241,15 @@ fn parse_term<'a>(text: &'a str, starts_quoted: bool, store: &Store) -> Result<T
     }
 
     let Some(&(prefix, op)) = OPS.iter().find(|(prefix, _)| rest.starts_with(prefix)) else {
-        return Err(text); // unknown operator
+        // `=`, `<`, `>` can only fail to match here as part of `!=`/`<=`/`>=`, which the
+        // single-char entries below still catch -- so the only true "attempted but unrecognized
+        // operator" glyphs left are `!` and `~`. Anything else was never a KEY OP term at all
+        // (e.g. `cart-item`, `user@x.com`): it's a bareword substring, not malformed.
+        return if matches!(rest.chars().next(), Some('!' | '~')) {
+            Err(text)
+        } else {
+            Ok(Term::Substring(text.to_string()))
+        };
     };
     let value = &rest[prefix.len()..];
 
@@ -377,6 +395,37 @@ mod tests {
         let body = filter(store_with_two_spans(), "service~checkout status=ok").await;
         assert_eq!(body["indices"], serde_json::json!([0]));
         assert_eq!(body["dropped_terms"], serde_json::json!(["service~checkout"]));
+    }
+
+    #[tokio::test]
+    async fn unterminated_quote_is_dropped_but_the_rest_of_the_query_still_applies() {
+        let body = filter(store_with_two_spans(), "status=ok \"unclo").await;
+        assert_eq!(body["indices"], serde_json::json!([0]));
+        assert_eq!(body["dropped_terms"], serde_json::json!(["unclo"]));
+    }
+
+    #[tokio::test]
+    async fn bareword_with_punctuation_is_a_substring_term_not_a_dropped_malformed_term() {
+        let mut store = Store::new(10_000_000);
+        store.insert_span(
+            TraceId([1; 16]),
+            NewSpan {
+                span_id: SpanId([1; 8]),
+                parent_span_id: None,
+                name: "cart-item lookup".to_string(),
+                start_time_unix_nano: 0,
+                end_time_unix_nano: 1,
+                status_message: String::new(),
+                status_code: 0,
+                unknown_service: true,
+                service_name: None,
+                attributes: Vec::new(),
+            },
+            0,
+        );
+        let body = filter(Arc::new(RwLock::new(store)), "cart-item").await;
+        assert_eq!(body["indices"], serde_json::json!([0]));
+        assert_eq!(body["dropped_terms"], serde_json::json!([]));
     }
 
     #[tokio::test]
